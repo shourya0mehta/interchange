@@ -1,0 +1,43 @@
+{
+  "name": "interchange",
+  "version": "0.1.0",
+  "description": "Type a question about the planet, get a live map app that answers it.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc",
+    "network": "node scripts/build-network.mjs",
+    "gallery": "node --experimental-strip-types scripts/gallery.ts",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "author": "Shourya Mehta",
+  "license": "MIT",
+  "dependencies": {
+    "@fontsource/overpass": "^5.3.0",
+    "@fontsource/overpass-mono": "^5.3.0",
+    "geotiff": "^3.0.5",
+    "lz-string": "^1.5.0",
+    "maplibre-gl": "^6.15.0",
+    "proj4": "^2.22.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^26.6.5",
+    "@types/proj4": "^2.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.64.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  },
+  "private": true,
+  "type": "module"
+}

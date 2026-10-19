@@ -95,6 +95,9 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
   const [spec, setSpec] = useState<AppSpec | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /** The goal to try again when the last plan failed to find its place. */
+  const [retryGoal, setRetryGoal] = useState<string | null>(null);
+  const [building, setBuilding] = useState(false);
   const [dossier, setDossier] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState(loadKey);
   const [planSeq, setPlanSeq] = useState(0);
@@ -130,7 +133,7 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
     setGoal(t);
     setBusy(true);
     setErr(null);
-    setDossier(null);
+    setRetryGoal(null);
     try {
       let intent: Intent;
       if (apiKey) {
@@ -143,7 +146,13 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
       } else intent = parseGoal(t);
       if (pinned) intent = { ...intent, station: pinned };
       const place = intent.place ? await nominatim(intent.place) : null;
-      if (intent.place && !place) setErr(`Couldn't find "${intent.place}" on the map. Add a state or country, like "Tompkins County, NY".`);
+      if (intent.place && !place) {
+        // Stay where we are: the network (or the last plan) keeps its place on screen.
+        setErr(`Couldn't find "${intent.place}" on the map. Check your connection and try again, or add a state or country, like "Tompkins County, NY".`);
+        setRetryGoal(t);
+        return;
+      }
+      setDossier(null);
       const p = planRoutes(intent, place);
       setPlan(p);
       setRoutes(p.routes);
@@ -160,15 +169,47 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
   const check = useMemo(() => (route ? checkRoute(route) : null), [route]);
 
   const build = () => {
-    if (!route) return;
-    const { spec: s, errors } = compileRoute(route, goal || route.title);
-    if (!s) {
-      setErr(errors[0]);
-      return;
-    }
-    setSpec(s);
-    setView('app');
+    if (!route || building) return;
+    // Acknowledge the press this frame; compile and mount the app on the next.
+    setBuilding(true);
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        const { spec: s, errors } = compileRoute(route, goal || route.title);
+        setBuilding(false);
+        if (!s) {
+          setErr(errors[0]);
+          return;
+        }
+        setSpec(s);
+        setView('app');
+      }, 0),
+    );
   };
+
+  const errorNote = err && (
+    <div className="error" role="alert">
+      {err}
+      {retryGoal && (
+        <>
+          {' '}
+          <button className="btn-link" onClick={() => runPlan(retryGoal)} disabled={busy}>
+            {busy ? 'Trying again' : 'Try again'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+
+  const tab = (v: View, label: string, enabled: boolean) =>
+    view === v ? (
+      <span className="nav-tab" aria-current="page">
+        {label}
+      </span>
+    ) : (
+      <button className="nav-tab" onClick={() => setView(v)} disabled={!enabled}>
+        {label}
+      </button>
+    );
 
   const publish = async () => {
     if (!spec) return;
@@ -186,20 +227,21 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
   return (
     <div className="shell">
       <header className="band">
-        <button className="brand" onClick={() => setView('network')} aria-label="Interchange, back to the network map">
-          <BrandMark />
-          <span>Interchange</span>
-        </button>
+        {view === 'network' ? (
+          <div className="brand">
+            <BrandMark />
+            <span>Interchange</span>
+          </div>
+        ) : (
+          <button className="brand" onClick={() => setView('network')} aria-label="Interchange, back to the network map">
+            <BrandMark />
+            <span>Interchange</span>
+          </button>
+        )}
         <nav className="nav" aria-label="Views">
-          <button aria-current={view === 'network' ? 'page' : undefined} onClick={() => setView('network')}>
-            Network
-          </button>
-          <button aria-current={view === 'route' ? 'page' : undefined} onClick={() => setView('route')} disabled={!plan}>
-            Route
-          </button>
-          <button aria-current={view === 'app' ? 'page' : undefined} onClick={() => setView('app')} disabled={!spec}>
-            App
-          </button>
+          {tab('network', 'Network', true)}
+          {tab('route', 'Route', !!plan)}
+          {tab('app', 'App', !!spec)}
         </nav>
         <form
           className="goal"
@@ -245,7 +287,7 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
                 </button>
               ))}
             </div>
-            {err && <p className="error" style={{ margin: '12px 24px 0' }}>{err}</p>}
+            {err && <div className="network-error">{errorNote}</div>}
             <div style={{ padding: '8px 12px 0', overflowX: 'auto' }}>
               <NetworkMap selected={dossier} highlight={route ? [route.station] : []} onSelect={setDossier} />
             </div>
@@ -283,7 +325,7 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
                     {w}
                   </p>
                 ))}
-                {err && <p className="error">{err}</p>}
+                {errorNote}
                 <ol className="routes">
                   {routes.map((r, i) => {
                     const st = STATION_BY_ID[r.station];
@@ -293,15 +335,19 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
                       <li key={`${planSeq}-${i}`} className="route" data-selected={selected} style={{ ['--route-color' as string]: stationColor(st) }}>
                         <div className="route-head">
                           <h3 className="route-title">
-                            <button
-                              onClick={() => {
-                                setSel(i);
-                                setStop(null);
-                              }}
-                              aria-expanded={selected}
-                            >
-                              {r.title}
-                            </button>
+                            {selected ? (
+                              r.title
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSel(i);
+                                  setStop(null);
+                                }}
+                                aria-expanded={false}
+                              >
+                                {r.title}
+                              </button>
+                            )}
                           </h3>
                           {i === 0 && <span className="hint" style={{ whiteSpace: 'nowrap' }}>Best fit</span>}
                         </div>
@@ -344,8 +390,8 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
                         {selected && (
                           <div className="route-actions">
                             {r.runs === 'live' && (
-                              <button className="btn btn-primary" onClick={build} disabled={!check?.ok || !plan.place}>
-                                Build this app
+                              <button className="btn btn-primary" onClick={build} disabled={!check?.ok || !plan.place} aria-busy={building}>
+                                {building ? 'Building' : 'Build this app'}
                               </button>
                             )}
                             <button className="btn" onClick={() => setModal({ kind: 'ee', code: earthEngineScript(r), title: r.title })}>

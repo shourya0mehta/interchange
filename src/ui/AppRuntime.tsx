@@ -64,6 +64,7 @@ export function AppRuntime({
   const needed = swipe ? [spec.windows[0], spec.windows[1]] : [spec.windows[winIdx] ?? spec.windows[0]];
   const recipe = useMemo(() => ({ station: spec.station, signal: spec.signal }), [spec.station, spec.signal]);
 
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     const ctrl = new AbortController();
@@ -105,7 +106,7 @@ export function AppRuntime({
       if (missing.length) ctrl.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needed.map(keyOf).join('|'), recipe, grid]);
+  }, [needed.map(keyOf).join('|'), recipe, grid, attempt]);
 
   const current = layers[keyOf(needed[needed.length - 1])];
   const before = swipe ? layers[keyOf(spec.windows[0])] : undefined;
@@ -361,7 +362,10 @@ export function AppRuntime({
         )}
         {status.state === 'error' && (
           <div className="loading error" role="alert">
-            Couldn't load this layer: {status.message}
+            Couldn't load this layer: {status.message}.{' '}
+            <button className="btn-link" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </button>
           </div>
         )}
         {status.state === 'idle' && current?.note && (

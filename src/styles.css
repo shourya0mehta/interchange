@@ -124,7 +124,9 @@ a {
   gap: 4px;
 }
 
-.nav button {
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
   background: none;
   border: 0;
   color: #b9bdbf;
@@ -134,12 +136,12 @@ a {
   min-height: 44px;
 }
 
-.nav button[aria-current='page'] {
+.nav-tab[aria-current='page'] {
   color: var(--white);
   border-bottom-color: var(--white);
 }
 
-.nav button:disabled {
+.nav-tab:disabled {
   color: #5b6064;
   cursor: default;
 }
@@ -181,9 +183,18 @@ a {
   background: var(--paper-2);
 }
 
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 0 rgb(0 0 0 / 18%);
+}
+
 .btn:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.btn[aria-busy='true'] {
+  cursor: progress;
 }
 
 .btn-primary {
@@ -567,12 +578,12 @@ a {
 .draw-line {
   stroke-dasharray: var(--len);
   stroke-dashoffset: var(--len);
-  animation: draw 700ms var(--ease-out) forwards;
+  animation: draw var(--motion-lg) var(--ease-enter) forwards;
 }
 
 .pop-in {
   opacity: 0;
-  animation: pop 240ms var(--ease-out) forwards;
+  animation: pop var(--motion-sm) var(--ease-enter) forwards;
 }
 
 @keyframes draw {
@@ -872,22 +883,30 @@ a {
   overflow: hidden;
 }
 
+/* The runner spans the track so translateX(100%) means the track's width. */
 .train {
   position: absolute;
+  inset: 0;
+  animation: ride 1.2s linear infinite;
+}
+
+.train::before {
+  content: '';
+  position: absolute;
   top: 0;
+  left: -26px;
   width: 26px;
   height: 6px;
   border-radius: 3px;
   background: var(--route-color, var(--ink));
-  animation: ride 1.2s linear infinite;
 }
 
 @keyframes ride {
   from {
-    left: -26px;
+    transform: translateX(0);
   }
   to {
-    left: 100%;
+    transform: translateX(calc(100% + 26px));
   }
 }
 
@@ -1143,6 +1162,49 @@ a {
   .network-head h1 {
     font-size: 28px;
   }
+}
+
+.network-error {
+  margin: 12px 24px 0;
+}
+
+.map-wrap .maplibregl-ctrl-group button:not(:disabled):active {
+  background-color: rgb(0 0 0 / 14%);
+}
+
+/* Tile status over the map: present always, shown by opacity so it never blinks out. */
+.map-notice {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: var(--t-13);
+  font-weight: 600;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  /* A status that comes and goes within a second fades out on the same gentle curve. */
+  transition: opacity var(--motion-sm) var(--ease-out), visibility 0s linear var(--motion-sm);
+}
+
+.map-notice[data-show='true'] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--motion-md) var(--ease-enter), visibility 0s;
+}
+
+.map-notice .btn-link {
+  color: var(--white);
 }
 
 @media (prefers-reduced-motion: reduce) {

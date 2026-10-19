@@ -27,6 +27,7 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
   const markerRef = useRef<Marker | null>(null);
   const [pos, setPos] = useState(0.5);
   const [ready, setReady] = useState(false);
+  const [tiles, setTiles] = useState<'idle' | 'loading' | 'error'>('idle');
   const swipe = beforeUrl !== undefined;
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
@@ -37,14 +38,34 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
     const a = createMap(aRef.current!, bbox);
     mapA.current = a;
     a.on('click', (e) => clickRef.current?.([e.lngLat.lng, e.lngLat.lat]));
+    // Say so when tiles take a while, and when they fail, instead of a blank map.
+    let slow: ReturnType<typeof setTimeout> | undefined;
+    a.on('dataloading', () => {
+      if (slow) return;
+      slow = setTimeout(() => {
+        slow = undefined;
+        if (!a.areTilesLoaded()) setTiles((t) => (t === 'error' ? t : 'loading'));
+      }, 400);
+    });
+    a.on('idle', () => {
+      clearTimeout(slow);
+      slow = undefined;
+      setTiles((t) => (t === 'loading' ? 'idle' : t));
+    });
+    a.on('error', (ev) => {
+      const e = ev as unknown as { sourceId?: string; tile?: unknown; error?: { status?: number } };
+      if (e.sourceId || e.tile || e.error?.status) setTiles('error');
+    });
     whenStyled(a).then(() => {
       setAoi(a, bbox);
       setReady(true);
     });
     return () => {
+      clearTimeout(slow);
       a.remove();
       mapA.current = null;
       setReady(false);
+      setTiles('idle');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bbox.join(',')]);
@@ -98,6 +119,21 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
     if (el) el.style.cursor = clickable ? 'crosshair' : '';
   }, [clickable, ready]);
 
+  const retryTiles = () => {
+    const a = mapA.current;
+    if (!a) return;
+    setTiles('loading');
+    for (const id of Object.keys(a.getStyle().sources)) {
+      const src = a.getSource(id);
+      if (src && src.type !== 'image') a.refreshTiles(id);
+    }
+  };
+
+  // Keep the last message while the notice fades out.
+  const noticeText = useRef('');
+  if (tiles === 'loading') noticeText.current = 'Loading map tiles';
+  if (tiles === 'error') noticeText.current = "Basemap tiles didn't load.";
+
   const startDrag = (e: React.PointerEvent) => {
     const wrap = wrapRef.current!;
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -116,6 +152,14 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
   return (
     <div className="map-wrap" ref={wrapRef}>
       <div className="map" ref={aRef} data-testid="map" />
+      <div className="map-notice" data-show={tiles !== 'idle'} role={tiles === 'error' ? 'alert' : 'status'} aria-hidden={tiles === 'idle'}>
+        <span>{noticeText.current}</span>
+        {tiles === 'error' && (
+          <button className="btn-link" onClick={retryTiles}>
+            Retry
+          </button>
+        )}
+      </div>
       {swipe && (
         <>
           <div className="map map-top" ref={bRef} style={{ clipPath: `inset(0 0 0 ${pos * 100}%)` }} aria-hidden="true" />

@@ -95,7 +95,7 @@ export function RouteStrip({
             key={s.key}
             role="listitem"
             className={animate ? 'pop-in' : undefined}
-            style={animate ? { animationDelay: `${120 + i * 90}ms` } : undefined}
+            style={animate ? { animationDelay: `${40 + i * 40}ms` } : undefined}
           >
             {onStop ? (
               <g

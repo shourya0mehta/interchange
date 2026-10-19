@@ -2,9 +2,17 @@
 
 **Type a question about the planet, get a live map app that answers it, and see which satellites and methods it rode to get there.**
 
+Try it: **[shourya0mehta.github.io/interchange](https://shourya0mehta.github.io/interchange/)**. Pick one of the example goals, press Build this app, then Publish link.
+
 Interchange is a prompt-to-app builder for Earth observation. You write one sentence ("compare greenness in Fresno County, California in summer 2019 vs summer 2025"). Interchange draws your project as a route across a transit map of the observing system: a data station, method stops, and an app at the end of the line. Every stop can be inspected and swapped. When the route looks right, it compiles into a map app with a share link that opens for anyone, no login.
 
 Everything runs in the browser on open data. There is no server, no account and no compute bill.
+
+| The network | A route for one sentence |
+| --- | --- |
+| ![Transit map of the observing system](docs/network.jpg) | ![Candidate routes with trade-offs](docs/route.jpg) |
+| **Swipe app: Fresno County greenness, summer 2019 vs 2025** | **Click-for-history app: Tompkins County fields since 2018** |
+| ![Before and after swipe](docs/app-swipe.jpg) | ![Map with a history chart](docs/app-history.jpg) |
 
 ## How it works
 

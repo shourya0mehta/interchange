@@ -62,7 +62,7 @@ describe('pixels and summaries', () => {
     const tiff = await fromArrayBuffer(layerGeoTiff(values, grid));
     const img = await tiff.getImage();
     expect(img.getWidth()).toBe(grid.width);
-    expect(img.getGeoKeys().ProjectedCSTypeGeoKey).toBe(3857);
+    expect(img.getGeoKeys()!.ProjectedCSTypeGeoKey).toBe(3857);
     const [x0, y1] = img.getOrigin();
     expect(x0).toBeCloseTo(grid.merc[0], 3);
     expect(y1).toBeCloseTo(grid.merc[3], 3);

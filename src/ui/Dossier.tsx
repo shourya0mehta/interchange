@@ -4,6 +4,13 @@ import { LINE_BY_ID, STATION_BY_ID } from '../network/network';
 export function Dossier({ id, onClose, onPlan }: { id: string; onClose: () => void; onPlan: (id: string) => void }) {
   const s = STATION_BY_ID[id];
   const closeRef = useRef<HTMLButtonElement>(null);
+  // Remember what opened the dossier so focus goes back there when it closes.
+  useEffect(() => {
+    const opener = document.activeElement;
+    return () => {
+      if (opener && opener.isConnected && 'focus' in opener) (opener as HTMLElement).focus();
+    };
+  }, []);
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();

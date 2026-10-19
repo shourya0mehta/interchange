@@ -10,6 +10,7 @@ import { nominatim } from '../planner/places';
 import { planRoutes, type PlanResult } from '../planner/plan';
 import { AppRuntime } from './AppRuntime';
 import { BrandMark } from './BrandMark';
+import { Dialog } from './Dialog';
 import { Dossier } from './Dossier';
 import { MapView } from './MapView';
 import { MapKey, NetworkMap } from './NetworkMap';
@@ -409,56 +410,70 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
       </main>
 
       {modal && (
-        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
-          <div className="modal-card">
-            {modal.kind === 'share' && (
-              <>
-                <h2 id="modal-title">Your app is live</h2>
-                <p>The link holds the whole app, so it opens for anyone with no login and nothing stored on a server. It was copied to your clipboard.</p>
-                <pre>{modal.url}</pre>
-                <div className="route-actions">
-                  <a className="btn btn-primary" href={modal.url} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                    Open the app
-                  </a>
-                  <button className="btn" onClick={() => setModal(null)} autoFocus>
-                    Done
-                  </button>
-                </div>
-              </>
-            )}
-            {modal.kind === 'ee' && (
-              <>
-                <h2 id="modal-title">Earth Engine version</h2>
-                <p>Paste into the Earth Engine Code Editor and press Run. To publish it there, use Apps, then New App, with your own Earth Engine project.</p>
-                <pre>{modal.code}</pre>
-                <div className="route-actions">
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => navigator.clipboard?.writeText(modal.code).catch(() => undefined)}
-                  >
-                    Copy script
-                  </button>
-                  <button className="btn" onClick={() => setModal(null)} autoFocus>
-                    Done
-                  </button>
-                </div>
-              </>
-            )}
-            {modal.kind === 'key' && (
-              <KeyForm
-                current={apiKey}
-                onSave={(k) => {
-                  setApiKey(k);
-                  saveKey(k);
-                  setModal(null);
-                }}
-                onCancel={() => setModal(null)}
-              />
-            )}
-          </div>
-        </div>
+        <Dialog labelledBy="modal-title" onClose={() => setModal(null)}>
+          {(close) => (
+            <>
+              {modal.kind === 'share' && (
+                <>
+                  <h2 id="modal-title">Your app is live</h2>
+                  <p>The link holds the whole app, so it opens for anyone with no login and nothing stored on a server. It was copied to your clipboard.</p>
+                  <pre>{modal.url}</pre>
+                  <div className="route-actions">
+                    <a className="btn btn-primary" href={modal.url} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                      Open the app
+                    </a>
+                    <button className="btn" onClick={close} autoFocus>
+                      Done
+                    </button>
+                  </div>
+                </>
+              )}
+              {modal.kind === 'ee' && (
+                <>
+                  <h2 id="modal-title">Earth Engine version</h2>
+                  <p>Paste into the Earth Engine Code Editor and press Run. To publish it there, use Apps, then New App, with your own Earth Engine project.</p>
+                  <pre>{modal.code}</pre>
+                  <div className="route-actions">
+                    <CopyButton text={modal.code} />
+                    <button className="btn" onClick={close} autoFocus>
+                      Done
+                    </button>
+                  </div>
+                </>
+              )}
+              {modal.kind === 'key' && (
+                <KeyForm
+                  current={apiKey}
+                  onSave={(k) => {
+                    setApiKey(k);
+                    saveKey(k);
+                    close();
+                  }}
+                  onCancel={close}
+                />
+              )}
+            </>
+          )}
+        </Dialog>
       )}
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  return (
+    <button
+      className="btn btn-primary"
+      onClick={() =>
+        navigator.clipboard
+          .writeText(text)
+          .then(() => setState('copied'))
+          .catch(() => setState('failed'))
+      }
+    >
+      {state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy blocked: select the text' : 'Copy script'}
+    </button>
   );
 }
 

@@ -207,6 +207,7 @@ const EXTRA_RAMPS = {
     format: 'celsius',
   },
   lst: { domain: [0, 50], stops: THERMAL, units: 'Ground surface temperature by day', low: '', high: '', format: 'celsius', adaptive: 8 },
+  'lst-night': { domain: [-10, 35], stops: THERMAL, units: 'Ground surface temperature at night', low: '', high: '', format: 'celsius', adaptive: 6 },
   'air-temp': { domain: [-15, 35], stops: THERMAL, units: 'Average air temperature', low: '', high: '', format: 'celsius', adaptive: 4 },
   'snow-frequency': {
     domain: [0, 1],

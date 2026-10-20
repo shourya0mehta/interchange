@@ -143,6 +143,8 @@ function candidatesFor(intent: Intent): Candidate[] {
     if (/below the surface|deep|subsurface|heat content|salinity|argo|profiles?|\d+ ?m(eters)? down/i.test(text)) c = c.filter((x) => x.station !== 'oisst');
   }
   if (intent.theme === 'heat') {
+    // By day, bare desert and fields outrun the city; the urban heat island shows at night.
+    if (/\b(heat ?islands?|uhi|at night|night(time)?|overnight|after dark)\b/i.test(text)) c = c.map((x) => (x.station === 'modis-lst' ? { ...x, signal: 'lst-night' } : x));
     if (/\bair\b|weather|climate|average temp|daily temp|degrees/i.test(text) && !/surface|island|roofs?|pavement|asphalt|street|ground/i.test(text)) first('nclimgrid');
   }
   if (intent.theme === 'fire' && /active|hot ?spots?|burning (now|right now)|where (are|were) .*fires|fire (activity|season|counts?)|how many fires|thermal/i.test(text)) first('active-fire');

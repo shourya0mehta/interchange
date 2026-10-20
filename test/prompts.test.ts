@@ -64,7 +64,8 @@ const CASES: Case[] = [
   { q: 'snow around lake tahoe each winter since 2018', place: 'lake tahoe', theme: 'snow', top: 'sentinel-2', time: 'yearly' },
 
   // ---- Heat and temperature -------------------------------------------------------------
-  { q: 'urban heat island in phoenix summer 2025', place: 'phoenix', theme: 'heat', top: 'modis-lst', signal: 'lst' },
+  // The heat island is a night-time effect: by day the desert around Phoenix is hotter than the city.
+  { q: 'urban heat island in phoenix summer 2025', place: 'phoenix', theme: 'heat', top: 'modis-lst', signal: 'lst-night' },
   { q: 'hottest neighborhoods in miami', place: 'miami', theme: 'heat', top: 'modis-lst' },
   { q: 'temperature in ithaca since 1950', place: 'ithaca', theme: 'heat', top: 'nclimgrid', signal: 'air-temp', time: 'history' },
   { q: 'average summer air temperature in texas 1950 vs 2020', place: 'texas', theme: 'heat', top: 'nclimgrid', time: 'compare' },

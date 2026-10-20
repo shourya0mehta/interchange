@@ -20,6 +20,7 @@ export type Signal =
   | 'sst-anomaly'
   /** Land surface (skin) temperature by day, °C. */
   | 'lst'
+  | 'lst-night'
   /** Share of looks in a window where the ground was snow-covered, 0 to 1. */
   | 'snow-frequency'
   /** Share of 8-day periods in a window with a fire detection, 0 to 1. */
@@ -254,7 +255,11 @@ export const RUNTIME_SOURCES: Record<string, RuntimeSource> = {
     kind: 'product',
     catalog: 'planetary-computer',
     collection: 'modis-11A2-061',
-    variants: { lst: one('LST_Day_1km', { scale: 0.02, offset: -273.15, nodata: 0 }) },
+    variants: {
+      lst: one('LST_Day_1km', { scale: 0.02, offset: -273.15, nodata: 0 }),
+      // Around 10:30 pm: bare ground has cooled and the city still holds the day's heat.
+      'lst-night': one('LST_Night_1km', { scale: 0.02, offset: -273.15, nodata: 0 }),
+    },
     temporal: 'composite',
     stepDays: 8,
     nativeRes: 1000,

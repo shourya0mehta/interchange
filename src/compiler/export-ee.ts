@@ -19,7 +19,7 @@ const EE_HINTS: Record<string, { band: string; reducer: 'mean' | 'median' | 'max
 };
 
 const LIVE_EE: Record<string, { min: number; max: number; band: string; palette?: string[]; image?: boolean; mosaic?: boolean; scale?: number; toValue?: string; classPalette?: boolean; bands?: Record<string, string> }> = {
-  'modis-lst': { band: 'LST_Day_1km', min: 13657, max: 16157 },
+  'modis-lst': { band: 'LST_Day_1km', min: 13657, max: 16157, bands: { 'lst-night': 'LST_Night_1km' } },
   'modis-snow': { band: 'Maximum_Snow_Extent', min: 0, max: 1, toValue: 'v.eq(200).updateMask(v.eq(200).or(v.eq(25)))' },
   'active-fire': { band: 'FireMask', min: 0, max: 0.5, toValue: 'v.gte(7).updateMask(v.eq(5).or(v.gte(7)))' },
   oisst: { band: 'sst', min: -200, max: 3200, bands: { 'sst-anomaly': 'anom' } },

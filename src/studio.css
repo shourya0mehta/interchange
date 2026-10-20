@@ -1349,3 +1349,16 @@ a.btn {
     height: 46vh;
   }
 }
+.credit-line {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--mute);
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+}
+.credit-line .btn {
+  justify-self: start;
+  font-size: 14px;
+  padding: 6px 12px;
+}

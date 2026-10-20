@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { composeGif, composeImage, type ExportFormat, type ExportLegend } from './exportImage';
 import { creditLine } from '../compiler/credit';
+import { CopyButton } from './keys';
 import type { AppSpec } from '../compiler/spec';
 import { METHOD_BY_ID, SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
 import { lonLatToMerc, makeGrid } from '../runtime/geo';
@@ -578,6 +579,9 @@ export function AppRuntime({
               </button>
             </div>
           )}
+          <p className="credit-line">
+            <span>{creditLine(spec)}</span> <CopyButton text={creditLine(spec)} label="Copy the credit line" primary={false} />
+          </p>
           <p className="made-by">
             Made with <a href={mode === 'published' ? './' : undefined}>Interchange</a> on {spec.createdAt}. Data read live from open catalogs; nothing stored on a server.
           </p>

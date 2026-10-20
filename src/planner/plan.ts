@@ -341,7 +341,45 @@ function titleFor(st: Station, signal: Signal): string {
 }
 
 /** Turns a parsed goal and a place into ranked, type-checked candidate routes. */
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const lastOfFeb = (y: number) => (new Date(Date.UTC(y, 2, 0)).getUTCDate());
+
+/**
+ * Seasons south of the tropics run the other way: "summer 2016" on the Great Barrier Reef is
+ * December 2015 to February 2016. Season windows are re-read by their labels; event and month
+ * windows are left alone.
+ */
+export function southernSeasons<T extends { label: string; start: string; end: string }>(w: T): T {
+  let m = /^Summer (\d{4})$/.exec(w.label);
+  if (m) {
+    const y = Number(m[1]);
+    return { ...w, label: `Summer ${y - 1}-${String(y).slice(2)}`, start: `${y - 1}-12-01`, end: `${y}-02-${pad2(lastOfFeb(y))}` };
+  }
+  m = /^Winter (\d{4})-(\d{2})$/.exec(w.label);
+  if (m) {
+    const y = Number(m[1]) + 1;
+    return { ...w, label: `Winter ${y}`, start: `${y}-06-01`, end: `${y}-08-31` };
+  }
+  m = /^Spring (\d{4})$/.exec(w.label);
+  if (m) return { ...w, label: `Spring ${m[1]}`, start: `${m[1]}-09-20`, end: `${m[1]}-11-30` };
+  m = /^Fall (\d{4})$/.exec(w.label);
+  if (m) return { ...w, label: `Fall ${m[1]}`, start: `${m[1]}-03-20`, end: `${m[1]}-05-31` };
+  return w;
+}
+
+function southernIntent(intent: Intent): Intent {
+  const t = intent.time;
+  const today = new Date().toISOString().slice(0, 10);
+  const clamp = <W extends { end: string }>(w: W): W => (w.end > today ? { ...w, end: today } : w);
+  const f = (w: TimeWindow): TimeWindow => clamp(southernSeasons(w));
+  if (t.kind === 'snapshot') return { ...intent, time: { ...t, window: f(t.window) } };
+  if (t.kind === 'history') return { ...intent, time: { ...t, window: f(t.window) } };
+  if (t.kind === 'compare') return { ...intent, time: { ...t, windows: [f(t.windows[0]), f(t.windows[1])] } };
+  return { ...intent, time: { ...t, windows: t.windows.map(f) } };
+}
+
 export function planRoutes(intent: Intent, place: Place | null): PlanResult {
+  if (place && (place.bbox[1] + place.bbox[3]) / 2 < -15) intent = southernIntent(intent);
   const warnings: string[] = [];
   const skipped: PlanResult['skipped'] = [];
   if (!place) warnings.push('Name a place (a county, city, park, lake or ocean) so the map knows where to look.');

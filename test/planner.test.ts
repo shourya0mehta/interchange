@@ -144,3 +144,23 @@ describe('ranking', () => {
     expect(plan.routes[0].views).toContain('region-stats');
   });
 });
+
+describe('Southern seasons', () => {
+  it('summer 2016 on the Great Barrier Reef is December to February', () => {
+    const plan = planRoutes(parseGoal('sea surface temperature on the great barrier reef summer 2016', NOW), { name: 'Great Barrier Reef', bbox: [142.5, -24.5, 154, -10.5] });
+    const w = plan.routes[0].windows[0];
+    expect(w.start).toBe('2015-12-01');
+    expect(w.end).toBe('2016-02-29');
+    expect(w.label).toBe('Summer 2015-16');
+  });
+  it('winter 2023 in the Southern Alps is June to August 2023', () => {
+    const plan = planRoutes(parseGoal('snow in the southern alps of new zealand winter 2023', NOW), { name: 'Southern Alps', bbox: [168, -45.5, 171.5, -42.5] });
+    const w = plan.routes[0].windows[0];
+    expect(w.start).toBe('2023-06-01');
+    expect(w.label).toBe('Winter 2023');
+  });
+  it('leaves event dates alone', () => {
+    const plan = planRoutes(parseGoal('fires in new south wales before and after january 2020', NOW), { name: 'New South Wales', bbox: [141, -37.5, 153.6, -28.2] });
+    expect(plan.routes[0].windows[0].label).toContain('January 2020');
+  });
+});

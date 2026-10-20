@@ -84,3 +84,6 @@ An uploaded GeoJSON or KML is simplified to at most 400 points so it fits in the
 
 ## Recent maps stay in the browser
 The studio lists maps built in this browser (localStorage, eight at most, clearable). There are still no accounts; the list is a convenience, and every map is also its own link.
+
+## Seasons turn around south of the tropics
+For places centered south of 15°S, season windows are re-read: "summer 2016" on the Great Barrier Reef is December 2015 to February 2016, and "winter 2023" in the Southern Alps is June to August 2023. Month and event windows are left alone.

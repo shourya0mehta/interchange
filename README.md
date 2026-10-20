@@ -84,7 +84,6 @@ Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic Wo
 - Live previews are capped per dataset (see the table). Bigger places preview their center.
 - The copies read here have gaps: OISST skips mid-2024 through 2025, NClimGrid ends in September 2022, the Cropland Data Layer in 2021.
 - No accounts, private data, alerts or classification from examples (AlphaEarth embeddings are v3). Uploads are limited to a boundary file, which is read in the browser and kept in the link.
-- Seasons are northern-hemisphere: "summer" on the Great Barrier Reef still means June to August.
 - The rule reader handles plain sentences; looser ones need a Claude key.
 
 ## Run it

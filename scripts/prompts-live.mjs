@@ -1,5 +1,6 @@
-// Live prompt test: types real questions into the built site, plans, builds the app and checks
-// that the map actually draws data, several times each. Uses the real geocoders and catalogs,
+// Live prompt test: sends real questions to the studio on the built site, waits for the app it
+// builds and checks that the map actually draws data, several times each. Some prompts also send
+// a follow-up request and check the rebuilt map. Uses the real geocoders and catalogs,
 // so it paces itself (Nominatim asks for at most one request a second).
 //
 //   npm run build && npx vite preview --port 4173 &
@@ -17,8 +18,8 @@ mkdirSync(OUT, { recursive: true });
 /** Each prompt: the dataset its leading route should ride, and whether to click for history. */
 const PROMPTS = [
   // Sentinel-2
-  { q: 'Compare greenness of fields in Fresno County, California in summer 2019 vs summer 2025', via: 'Sentinel-2' },
-  { q: 'ndvi near ithaca ny 2024', via: 'Sentinel-2' },
+  { q: 'Compare greenness of fields in Fresno County, California in summer 2019 vs summer 2025', via: 'Sentinel-2', then: { say: 'compare with 2010 instead', via: 'Landsat' } },
+  { q: 'ndvi near ithaca ny 2024', via: 'Sentinel-2', then: { say: 'zoom out', via: 'Sentinel-2' } },
   { q: 'Burn severity in Paradise, California before and after November 2018', via: 'Sentinel-2' },
   { q: 'what does the salton sea look like now', via: 'Sentinel-2' },
   { q: 'greenness at 42.44, -76.50 summer 2025', via: 'Sentinel-2', chart: true },
@@ -44,7 +45,7 @@ const PROMPTS = [
   { q: 'elevation of mount rainier', via: 'Copernicus DEM' },
   // Ocean
   { q: 'i want sea surface temeprature, 1999-now, atlantic ocean', via: 'OISST', chart: true },
-  { q: 'sst in the gulf of mexico last summer', via: 'OISST' },
+  { q: 'sst in the gulf of mexico last summer', via: 'OISST', then: { say: 'make it a slider by year since 2015', via: 'OISST' } },
   { q: 'marine heatwave off the coast of california 2015', via: 'OISST' },
   { q: 'el nino pacific ocean temperature anomaly 2023', via: 'OISST' },
   { q: 'Sea surface temperature of the Mediterranean, 2003 vs 2023', via: 'OISST' },
@@ -74,6 +75,14 @@ const PROMPTS = [
   { q: 'st louis flooding 2019', via: 'Sentinel-1' },
   { q: 'corn and soybeans in mclean county illinois 2021', via: 'Cropland' },
   { q: 'where is it snowing in colorado right now', via: 'MODIS snow' },
+  // The studio's starting templates
+  { q: 'Map flooding in Houston before and after Hurricane Harvey', via: 'Sentinel-1' },
+  { q: 'Sea surface temperature against normal in the Gulf of Mexico this summer', via: 'OISST' },
+  { q: 'How has snow cover in the Sierra Nevada changed each winter since 2018', via: 'MODIS snow' },
+  { q: 'Land cover around Atlanta from 1992 to 2020', via: 'CCI' },
+  { q: 'Where did fires burn in the Amazon in 2019', via: 'Active fire' },
+  { q: 'What crops grew in Story County, Iowa in 2021', via: 'Cropland' },
+  { q: 'Rainfall in Kansas, 2022 vs 2012', via: 'NClimGrid' },
 ];
 
 const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader', '--ignore-gpu-blocklist'] });
@@ -88,27 +97,29 @@ async function runOne(p, attempt) {
   page.on('pageerror', (e) => errors.push(String(e)));
   const t0 = Date.now();
   const r = { q: p.q, attempt, via: p.via, ok: false, route: null, place: null, ms: null, note: '' };
+  const waitIdle = () => page.waitForFunction(() => !document.querySelector('.loading[role="status"] .train-track'), null, { timeout: 180_000 });
   try {
     await page.goto(`${BASE}#build?q=${encodeURIComponent(p.q)}`);
-    await page.waitForSelector('.routes .route, .ask-error, .no-place', { timeout: 60_000 });
-    if (await page.locator('.ask-error').count()) throw new Error(`plan failed: ${await page.locator('.ask-error').innerText()}`);
-    if (await page.locator('.no-place').count()) throw new Error('no place found');
-    r.route = (await page.locator('.route[data-selected="true"] .route-title').innerText()).trim();
-    r.place = (await page.locator('.pane .lede').innerText()).trim();
+    await page.waitForSelector('.turn-built, .turn-problem', { timeout: 60_000 });
+    if (await page.locator('.turn-problem').count()) throw new Error(`studio said: ${await page.locator('.turn-problem').first().innerText()}`);
+    const step = (n) => page.locator('.turn-built').last().locator(`.build-steps li:nth-child(${n}) .build-value`).innerText();
+    r.route = (await step(3)).trim();
+    r.place = (await step(2)).trim();
     if (p.via && !r.route.toLowerCase().includes(p.via.toLowerCase())) r.note += `rode "${r.route}", expected ${p.via}. `;
-    const build = page.getByRole('button', { name: 'Build this app' });
-    if (!(await build.count())) throw new Error('route is export-only');
-    await build.click();
-    await page.waitForSelector('.app', { timeout: 20_000 });
-    await page.waitForFunction(() => !document.querySelector('.loading[role="status"] .train-track'), null, { timeout: 180_000 });
-    const failed = await page.locator('.loading.error').count();
-    if (failed) throw new Error(`layer failed: ${await page.locator('.loading.error').innerText()}`);
-    const note = await page.locator('.loading[role="status"]').allInnerTexts();
-    if (note.some((n) => /^No .* data|No .* scenes/.test(n))) throw new Error(`no data: ${note.join(' ')}`);
-    // A legend, land cover classes, swipe tags, or (for true color, which has no legend) the note
-    // naming the acquisitions the map was drawn from.
-    const drawn = (await page.locator('.legend-ramp, .classes li, .swipe-tags').count()) || (await page.getByText(/This view uses \d+ acquisitions?/).count());
-    if (!drawn) throw new Error('nothing drawn: no legend and no acquisitions');
+    const drew = async () => {
+      if (!(await page.locator('.app').count())) throw new Error('route is export-only');
+      await waitIdle();
+      const failed = await page.locator('.loading.error').count();
+      if (failed) throw new Error(`layer failed: ${await page.locator('.loading.error').innerText()}`);
+      const note = await page.locator('.loading[role="status"]').allInnerTexts();
+      if (note.some((n) => /^No (pictures|data) /.test(n))) throw new Error(`no data: ${note.join(' ')}`);
+      // A legend, land cover classes, swipe tags, or (for true color, which has no legend) the note
+      // naming the acquisitions the map was drawn from.
+      const drawn = (await page.locator('.legend-ramp, .classes li, .swipe-tags').count()) || (await page.getByText(/This view uses \d+ acquisitions?/).count());
+      if (!drawn) throw new Error('nothing drawn: no legend and no acquisitions');
+    };
+    await page.waitForSelector('.app, .preview-empty', { timeout: 20_000 });
+    await drew();
     if (p.chart) {
       const box = await page.getByTestId('map').boundingBox();
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
@@ -116,6 +127,18 @@ async function runOne(p, attempt) {
       const dots = await page.locator('.chart circle').count();
       r.note += `history chart: ${dots} readings. `;
       if (dots < 3) throw new Error('history chart came back nearly empty');
+    }
+    if (p.then) {
+      const n = await page.locator('.turn-built').count();
+      await page.fill('#follow-input', p.then.say);
+      await page.press('#follow-input', 'Enter');
+      await page.waitForFunction((k) => document.querySelectorAll('.turn-built').length > k || document.querySelectorAll('.turn-problem').length, n, { timeout: 60_000 });
+      if (await page.locator('.turn-problem').count()) throw new Error(`follow-up "${p.then.say}": ${await page.locator('.turn-problem').last().innerText()}`);
+      const after = (await step(3)).trim();
+      r.note += `then "${p.then.say}" rode ${after}. `;
+      if (!after.toLowerCase().includes(p.then.via.toLowerCase())) r.note += `expected ${p.then.via}. `;
+      await page.waitForTimeout(500);
+      await drew();
     }
     r.ms = Date.now() - t0;
     r.ok = true;

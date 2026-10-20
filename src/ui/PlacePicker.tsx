@@ -157,7 +157,7 @@ export function PlacePicker({ initial, onPick, onCancel }: { initial: string; on
     const m = map.current;
     if (!m) return;
     m.fitBounds(p.bbox as [number, number, number, number], { padding: 40, duration: 0 });
-    whenStyled(m).then(() => setAoi(m, p.bbox));
+    whenStyled(m).then(() => setAoi(m, p.bbox, '#000', p.shape));
   };
 
   // Drag a box: pan is paused while drawing so the drag draws instead.

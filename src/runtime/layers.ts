@@ -242,9 +242,9 @@ async function evaluateScene(
     scenes: used,
     note:
       items.length === 0
-        ? `No ${src.collection} scenes in ${window.label}`
+        ? `No pictures of this area in ${window.label}. Ask for another year or a longer window.`
         : coverage < 0.5
-          ? `Only ${Math.round(coverage * 100)}% of the area was clear in ${window.label}`
+          ? `Clouds hid ${100 - Math.round(coverage * 100)}% of the area in ${window.label}. The gaps are where no clear look was found.`
           : undefined,
   };
 }
@@ -394,7 +394,7 @@ async function evaluateProduct(
     values: out,
     coverage,
     scenes: used,
-    note: used.length === 0 ? `No ${src.collection} data for ${window.label}` : undefined,
+    note: used.length === 0 ? `No data for this area in ${window.label}. This dataset may not cover it, or not in those years.` : undefined,
   };
   if (recipe.signal === 'elevation') {
     const lo = percentile(out, 0.02);

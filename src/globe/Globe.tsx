@@ -186,6 +186,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
     const reduced = prefersReducedMotion();
     const start = performance.now();
     let last = start;
+    let lastDraw = 0;
     let hover: { x: number; y: number } | null = null;
 
     loadEarth()
@@ -269,7 +270,11 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
         v.zoom += (1 - v.zoom) * 0.05;
       }
 
-      draw(now);
+      // 30 frames a second is plenty for a slow turn; dragging gets every frame.
+      if (v.dragging || now - lastDraw >= 32 || reduced) {
+        draw(now);
+        lastDraw = now;
+      }
       const settling = v.target && now - v.target.t0 < 1500;
       if (visible && !document.hidden && (!reduced || settling || v.dragging || Math.abs(v.vLon) > 0.001)) schedule();
     }

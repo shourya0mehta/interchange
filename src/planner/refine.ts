@@ -92,8 +92,11 @@ export function refine(prev: Intent, text: string, now: Date = new Date()): Refi
 
   // Place.
   const scale = ZOOM_OUT.test(said) ? 3 : ZOOM_IN.test(said) ? 1 / 3 : null;
+  // A follow-up names a new place only with some sign of it: a capital, a preposition, a place
+  // noun, or a "now do", "what about", "try" in front. "Make it prettier" is not a place.
   const candidates = placeCandidates(said);
-  const newPlace = candidates.length > 0 && !scale;
+  const lead = /^(now\s+|and\s+)?(do|try|show( me)?|switch to|move to|go to|what about|how about|same (thing )?for|again for)\b/i.test(said);
+  const newPlace = !scale && candidates.some((c) => c.score >= 3 || lead);
   if (newPlace) changes.push(`Place: ${parsed.place}`);
   if (scale) changes.push(scale > 1 ? 'Area: three times wider' : 'Area: three times closer');
   if (stationSaid && parsed.station) changes.push(`Dataset: ${parsed.station}`);

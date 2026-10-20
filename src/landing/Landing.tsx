@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { compileRoute, encodeSpec, type AppSpec } from '../compiler/spec';
 import { creditLine } from '../compiler/credit';
 import { LINE_BY_ID, STATIONS, STATION_BY_ID } from '../network/network';
@@ -14,6 +14,7 @@ import { SplitFlap } from '../ui/SplitFlap';
 import { globeProps } from '../ui/AskBox';
 import { useLiveIntent } from '../ui/readback';
 import { useSlashFocus } from '../ui/useSlash';
+import { Swap } from '../ui/Swap';
 
 const REPO = 'https://github.com/shourya0mehta/interchange';
 const base = () => `${location.origin}${location.pathname}`;
@@ -76,6 +77,9 @@ const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; p
     alt: 'A slide image exported from Interchange: Fresno County greenness in summer 2010 and summer 2025, side by side, with a legend and credit line',
   },
 ];
+
+let cachedDeps: ReturnType<typeof departures> | null = null;
+let cachedJobs: ((typeof JOBS)[number] & { spec: AppSpec | null })[] | null = null;
 
 const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -152,8 +156,19 @@ export function Landing() {
   const { demo, typed } = useDemo(demoOn);
   const live = useLiveIntent(goal || demo.q, goal ? null : demo.place);
   const g = globeProps(live.intent, live.back, live.place);
-  const deps = useMemo(departures, []);
-  const jobs = useMemo(() => JOBS.map((j) => ({ ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions }) })), []);
+  const [deps, setDeps] = useState(cachedDeps ?? []);
+  const [jobs, setJobs] = useState(cachedJobs ?? JOBS.map((j) => ({ ...j, spec: null as AppSpec | null })));
+  // Compiling a dozen example apps takes a frame or two, so do it after the first paint, once.
+  useEffect(() => {
+    if (cachedDeps) return;
+    const t = setTimeout(() => {
+      cachedDeps = departures();
+      cachedJobs = JOBS.map((j) => ({ ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions }) }));
+      setDeps(cachedDeps);
+      setJobs(cachedJobs);
+    }, 60);
+    return () => clearTimeout(t);
+  }, []);
   const liveCount = STATIONS.filter((s) => s.live).length;
   const [howRef, howSeen] = useInView<HTMLOListElement>();
   const [boardRef, boardSeen] = useInView<HTMLTableElement>();
@@ -285,7 +300,8 @@ export function Landing() {
                 </button>
               ))}
             </div>
-            <div className="job-panel" id="job-panel" role="tabpanel" aria-labelledby={`job-${active.id}`} key={active.id}>
+            <Swap id={active.id}>
+            <div className="job-panel" id="job-panel" role="tabpanel" aria-labelledby={`job-${active.id}`}>
               <div className={`job-figure job-figure-${active.id}`}>
                 {active.id === 'newsroom' && (
                   <div className="mock-article" aria-hidden="true">
@@ -317,6 +333,7 @@ export function Landing() {
                 </div>
               </div>
             </div>
+            </Swap>
           </div>
         </section>
 

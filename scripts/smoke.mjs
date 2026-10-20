@@ -42,6 +42,7 @@ await page.waitForFunction(() => document.querySelector('.home-hero .heard')?.te
 ok('home reads back a typed question', (await page.locator('.home-hero .heard').innerText()).includes('1999 to now'));
 ok('departures board lists real apps', (await page.locator('.board a[href*="#app="]').count()) >= 8);
 await page.getByRole('tab', { name: /Classrooms/ }).click();
+await page.waitForFunction(() => document.querySelector('.job-panel img')?.getAttribute('src')?.includes('classroom'), null, { timeout: 5_000 }).catch(() => {});
 ok('jobs switch to classrooms', (await page.locator('.job-panel img').getAttribute('src')).includes('classroom'));
 ok('network map draws every station', (await page.locator('.station-hit').count()) >= 28);
 await page.getByRole('button', { name: /^Sentinel-2, runs live/ }).click();
@@ -139,6 +140,42 @@ await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/8-sst.png` });
 ok('ocean question rides OISST', (await page.locator('.turn-built').last().innerText()).includes('Sea Surface Temperature') || (await page.locator('.turn-built').last().innerText()).includes('OISST'));
 ok('sea temperature legend reads in °C', (await page.locator('.legend-ends').innerText()).includes('°C'));
+
+// A slider app becomes an animated GIF.
+await fresh('Snow cover in the Sierra Nevada each winter since 2018');
+await page.waitForTimeout(1000);
+await page.getByRole('button', { name: 'Publish', exact: true }).click();
+await page.getByRole('tab', { name: 'Image' }).click();
+await page.getByRole('button', { name: 'Make the GIF' }).click();
+await page.waitForSelector('.gif-maker img', { timeout: 240_000 });
+ok('animated GIF is drawn, one frame per winter', (await page.locator('.gif-maker img').count()) === 1);
+await page.getByRole('button', { name: 'Done' }).click();
+await page.waitForSelector('.share', { state: 'detached', timeout: 5_000 });
+
+// An unclear follow-up gets told what can change, not a new map.
+const turnsBefore = await page.locator('.turn-built').count();
+await page.fill('#follow-input', 'make it prettier');
+await page.press('#follow-input', 'Enter');
+await page.waitForSelector('.turn-note', { timeout: 10_000 });
+ok('unclear follow-up explains what can change', (await page.locator('.turn-built').count()) === turnsBefore);
+
+// A boundary file masks the map to the fields.
+await page.getByRole('button', { name: 'New map' }).click();
+await page.waitForSelector('.recent-map', { timeout: 5_000 }).catch(() => {});
+ok('your maps are listed on the studio start', (await page.locator('.recent-map').count()) >= 2);
+await page.fill('#goal', 'greenness this summer');
+await page.press('#goal', 'Enter');
+await page.getByRole('button', { name: 'Pick it on the map' }).first().click();
+await page.waitForSelector('.picker');
+await page.getByRole('button', { name: 'Try two sample fields' }).click();
+await page.waitForFunction(() => document.querySelector('.picker .btn-primary')?.textContent?.includes('Two fields near Ames'), null, { timeout: 10_000 });
+await page.locator('.picker .btn-primary').click();
+await built(page);
+await page.waitForSelector('.app');
+await waitIdle(page);
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${OUT}/8b-fields.png` });
+ok('boundary file builds a map of just those fields', (await page.locator('.turn-built').last().innerText()).includes('Two fields near Ames'));
 
 // No place in the question: pick it on the map.
 await page.getByRole('button', { name: 'New map' }).click();

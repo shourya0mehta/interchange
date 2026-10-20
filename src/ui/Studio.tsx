@@ -3,7 +3,7 @@ import { compileRoute, decodeSpec, routeFromSpec, type AppSpec } from '../compil
 import { earthEngineScript } from '../compiler/export-ee';
 import { STATION_BY_ID } from '../network/network';
 import type { Route } from '../network/types';
-import { THEME_WORDS, parseGoal, type Intent } from '../planner/intent';
+import { THEME_WORDS, parseGoal, placeCandidates, type Intent } from '../planner/intent';
 import { parseGoalWithClaude } from '../planner/llm';
 import { geocodeFirst, nominatim } from '../planner/places';
 import { planRoutes, type Place } from '../planner/plan';
@@ -24,6 +24,7 @@ import { KeyForm, CopyButton, loadKey, saveKey } from './keys';
 import { daysAgo, latestLook } from '../runtime/latest';
 import { forgetMaps, loadRecent, rememberMap } from './recent';
 import { useSlashFocus } from './useSlash';
+import { Swap } from './Swap';
 
 /** What one build looked like, so any earlier version can be brought back. */
 interface Version {
@@ -125,7 +126,13 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
   const [versions, setVersions] = useState<Version[]>([]);
   const [current, setCurrent] = useState(-1);
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  // A ref as well as state, so a request that hands over to another sees the current value.
+  const busyRef = useRef(false);
+  const setBusy = (b: boolean) => {
+    busyRef.current = b;
+    setBusyState(b);
+  };
   const [draft, setDraft] = useState('');
   const [pinned, setPinned] = useState<string | null>(initialStation && STATION_BY_ID[initialStation] ? initialStation : null);
   const [apiKey, setApiKey] = useState(loadKey);
@@ -197,7 +204,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
 
   const start = async (text: string, chosen: Place | null = null) => {
     const t = text.trim();
-    if (!t || busy) return;
+    if (!t || busyRef.current) return;
     setBusy(true);
     push({ who: 'you', text: t });
     try {
@@ -220,7 +227,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
 
   const followUp = async (text: string) => {
     const t = text.trim();
-    if (!t || busy) return;
+    if (!t || busyRef.current) return;
     if (!v) return start(t);
     setBusy(true);
     setDraft('');
@@ -240,10 +247,14 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
         place = { name: v.place.name, bbox: [Math.max(-180, cx - hw), Math.max(-85, cy - hh), Math.min(180, cx + hw), Math.min(85, cy + hh)] };
       }
       if (!r.changes.length) {
-        // Nothing recognisable as a change: read it as a new question instead.
-        setBusy(false);
-        setTurns((prev) => prev.slice(0, -1));
-        return start(t);
+        // Nothing recognisable as a change. A new place means a new question; otherwise say what can change.
+        if (placeCandidates(t).some((c) => c.score >= 3)) {
+          setBusy(false);
+          setTurns((prev) => prev.slice(0, -1));
+          return start(t);
+        }
+        push({ who: 'ic', kind: 'note', text: 'I can change the dates, the place, the dataset, the view or how much area it covers. Try "compare with 2015", "use Landsat", "make it a slider by year" or "zoom out".' });
+        return;
       }
       build(r.intent, place, r.changes, r.intent.station);
     } finally {
@@ -345,6 +356,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
         )}
       </header>
 
+      <Swap id={empty ? 'start' : 'studio'} className="swap-view studio-swap">
       {empty ? (
         <main className="studio-start">
           <AskBox
@@ -498,7 +510,9 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
 
           <section className="studio-preview" aria-label="Your app">
             {spec ? (
-              <AppRuntime key={current} spec={spec} mode="builder" apiRef={apiRef} onTitle={(title) => patchSpec({ ...spec, title })} onSpec={patchSpec} />
+              <Swap id={String(current)} className="swap-view">
+                <AppRuntime key={current} spec={spec} mode="builder" apiRef={apiRef} onTitle={(title) => patchSpec({ ...spec, title })} onSpec={patchSpec} />
+              </Swap>
             ) : route && route.runs === 'export' ? (
               <div className="preview-empty">
                 <h2>This one runs in Earth Engine</h2>
@@ -515,6 +529,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
           </section>
         </main>
       )}
+      </Swap>
 
       {dossier && <Dossier id={dossier} onClose={() => setDossier(null)} onPlan={(id) => { setPinned(id); setDossier(null); }} />}
 

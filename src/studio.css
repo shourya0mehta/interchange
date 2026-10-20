@@ -1031,3 +1031,64 @@ a.btn {
   font-size: 12px;
   color: var(--mute);
 }
+
+/* ---- kymo pass on the new design ------------------------------------------------------ */
+/* The embed's credit bar sits under the map, not over its attribution. */
+.embed > .map-wrap {
+  inset: 0 0 30px 0;
+}
+.embed-credit {
+  height: 30px;
+  display: flex;
+  align-items: center;
+}
+/* A thumb-sized toggle for the readers' notes. */
+.for-readers summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.for-readers summary h3 {
+  margin: 0;
+}
+/* Shorter motion: the scan line, the build log and the downlink stay under half a second. */
+.btn-primary:hover:not(:disabled)::before {
+  transition:
+    transform 420ms var(--ease-enter),
+    opacity 80ms linear;
+}
+.build-steps li {
+  animation-duration: 240ms;
+  animation-delay: calc(var(--i) * 55ms);
+}
+.downlink-mask {
+  animation-duration: 480ms;
+}
+/* Pressing a tab that's already open still answers the press. */
+.job-tab:active {
+  transform: translateX(2px);
+}
+/* Thumb-sized targets on touch screens. */
+@media (pointer: coarse) {
+  .chip {
+    min-height: 44px;
+  }
+  .home-foot a,
+  .hint .btn-link {
+    display: inline-block;
+    min-height: 44px;
+    padding: 12px 0;
+  }
+  .studio-band .brand,
+  .published-band .brand {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+.studio-swap {
+  min-height: 0;
+  overflow: hidden;
+}
+.studio-start {
+  height: 100%;
+}

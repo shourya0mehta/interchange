@@ -164,7 +164,11 @@ export const previewGeocoder: Geocoder = (query, signal) => {
   let p = previewCache.get(key);
   if (!p) {
     p = photon(query, signal, 5).then((v) => (v ? { ...v, bbox: atLeast(v.bbox) } : v));
-    p.then((v) => v === null && previewCache.delete(key));
+    // A miss or an aborted lookup isn't remembered, so the next keystroke can try again.
+    p.then(
+      (v) => v === null && previewCache.delete(key),
+      () => previewCache.delete(key),
+    );
     previewCache.set(key, p);
   }
   return p;

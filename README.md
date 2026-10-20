@@ -67,7 +67,7 @@ Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic Wo
 
 ## Tested
 - **Prompt bank** (`test/prompts.test.ts`, `test/prompt-variants.test.ts`): 159 sentences across every theme and dataset, written the way people type them. They include lowercase, misspellings, coordinates ("lat 36.7 lon -119.8"), nicknames like NYC and LA, oceans, "1999-now", "summer '19", "right now", "in July", "hotter than" and "shrinking", plus the same questions reworded several ways. Each is checked for place, theme, dates, the leading route, the type check and the compiled app.
-- **Live prompts** (`scripts/prompts-live.mjs`): 46 questions typed into the built site, planned, built and checked for a drawn map (and a history chart where asked), against the real geocoders and catalogs. On October 19, round two drew all 46 on the first try, in about 13 seconds each on average. In round one, 44 of 46 drew on the first try; the two misses were a check that expected a legend on a true-color map and a connection dropped by a workspace restart, and both drew on rerun.
+- **Live prompts** (`scripts/prompts-live.mjs`): 53 questions sent to the studio on the built site, each built into an app and checked for a drawn map (and a history chart where asked), against the real geocoders and catalogs. Three of them also send a follow-up request ("compare with 2010 instead", "make it a slider by year since 2015", "zoom out") and check the rebuilt map. On October 19, all 53 drew on the first try. An earlier two-round run of 46 questions through the old builder drew 90 of 92 on the first try; the two misses were a test check and a dropped connection, and both drew on rerun.
 - **Datasets** (`INTEGRATION=1 npm test`): real pixels from every new dataset, with plausible values (Phoenix summer ground near 50 °C, Gulf summer sea near 30 °C).
 
 ## Measured
@@ -75,7 +75,7 @@ Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic Wo
 - Tompkins County NDVI from Sentinel-2: about 3 seconds for a 768-pixel grid, from STAC search to pixels (Node, same code path as the browser).
 - Click-for-history at a farm field, one year of Sentinel-2: 57 scenes searched, 36 clear looks, under 6 seconds.
 - Gallery test: 10 of 10 sampled public Earth Engine apps rebuilt from one sentence with no hand edits (`test/gallery.test.ts`).
-- Browser smoke test: 28 checks across the home page and globe, the studio from a question to an app, a follow-up request, publishing as a link, embed and image, embed mode, a history chart, land cover totals, sea surface temperature, the place picker and phone layouts, zero console errors (`scripts/smoke.mjs`).
+- Browser smoke test: 32 checks across the home page and globe, the studio from a question to an app, a follow-up request and an unclear one, publishing as a link, embed, image and animated GIF, embed mode, a history chart, land cover totals, sea surface temperature, a boundary file, your recent maps, the place picker and phone layouts, zero console errors (`scripts/smoke.mjs`).
 
 ## What is not built
 
@@ -95,7 +95,7 @@ npm test               # unit tests, planner, gallery test
 INTEGRATION=1 npm test # also reads real data from Earth Search and Planetary Computer
 npm run build && npx vite preview --port 4173 &
 npm run smoke          # headless browser walkthrough with screenshots in shots/
-node scripts/prompts-live.mjs   # 46 real questions, built and checked twice each
+node scripts/prompts-live.mjs   # 53 real questions through the studio (REPEAT=2 for two rounds)
 ```
 
 ## Data and credits

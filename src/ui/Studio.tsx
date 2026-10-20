@@ -94,12 +94,18 @@ function stepsFor(intent: Intent, place: Place, route: Route): Step[] {
   const st = STATION_BY_ID[route.station];
   const shows = route.views.map((v) => SHOWS[v]).filter(Boolean);
   return [
-    { label: 'Heard', value: `${THEME_WORDS[intent.theme][0].toUpperCase()}${THEME_WORDS[intent.theme].slice(1)}, ${whenWords(intent)}` },
+    // Elevation and other one-time surveys have no dates to choose; say so instead of a season.
+    { label: 'Heard', value: `${THEME_WORDS[intent.theme][0].toUpperCase()}${THEME_WORDS[intent.theme].slice(1)}${st.temporal === 'static' ? '' : `, ${whenWords(intent)}`}` },
     { label: 'Place', value: place.name },
     { label: 'Data', value: `${st.name}`, note: route.why },
     {
       label: 'Dates',
-      value: route.windows.length > 2 ? `${route.windows[0].label} to ${route.windows[route.windows.length - 1].label}, ${route.windows.length} maps` : route.windows.map((w) => w.label).join(' vs '),
+      value:
+        st.temporal === 'static'
+          ? 'One survey; this doesn’t change from year to year'
+          : route.windows.length > 2
+            ? `${route.windows[0].label} to ${route.windows[route.windows.length - 1].label}, ${route.windows.length} maps`
+            : route.windows.map((w) => w.label).join(' vs '),
     },
     { label: 'App', value: shows.length ? shows.join(', ') : 'a map with a legend' },
   ];

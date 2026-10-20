@@ -1270,10 +1270,16 @@ a {
 .maplibregl-cooperative-gesture-screen {
   background: rgba(18, 21, 24, 0.55);
   font-family: var(--display);
-  transition: opacity var(--motion-md) var(--ease-exit) 600ms;
+  transition: opacity var(--motion-md) var(--ease-enter) 600ms;
 }
-.maplibregl-cooperative-gesture-screen.maplibregl-show {
+.map-wrap .maplibregl-cooperative-gesture-screen.maplibregl-show {
   transition: opacity var(--motion-sm) var(--ease-enter);
+}
+/* Two-way toggles take a thumb on touch screens. */
+@media (pointer: coarse) {
+  .toggle button {
+    min-height: 44px;
+  }
 }
 
 /* The network map is drawn when it nears the screen; let it arrive instead of popping in. */

@@ -1420,3 +1420,8 @@ a.btn {
     display: none;
   }
 }
+
+/* The legend's room is kept while the layer loads, so the card doesn't grow under the reader. */
+.embed-card .legend-slot {
+  height: 33px;
+}

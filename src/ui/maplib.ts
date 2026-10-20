@@ -21,11 +21,10 @@ export function createMap(container: HTMLElement, bbox: Bbox, opts: { interactiv
     cooperativeGestures: opts.cooperative ?? false,
   });
   if (opts.interactive ?? true) map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
-  // MapLibre opens the credits on load; on a phone-width map that covers a third of it. Start
-  // folded there: the (i) button is one tap away.
-  map.once('load', () => {
-    if (container.clientWidth < 640) container.querySelector('.maplibregl-compact-show')?.classList.remove('maplibregl-compact-show');
-  });
+  // MapLibre opens the credits once they load; on a phone-width map that covers a third of it,
+  // then jumps shut on the first drag. Marking them compact now keeps them folded from the start
+  // (MapLibre only opens them the first time it makes them compact), one tap from the (i).
+  if (container.clientWidth < 640) container.querySelector('.maplibregl-ctrl-attrib')?.classList.add('maplibregl-compact');
   return map;
 }
 

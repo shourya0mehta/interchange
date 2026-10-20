@@ -315,6 +315,7 @@ export function AppRuntime({
               onChange={(e) => setWinIdx(Number(e.target.value))}
             />
           )}
+          {!legend && has('legend') && status.state !== 'error' && <div className="legend-slot" aria-hidden="true" />}
           {legend && legend.kind === 'ramp' && (
             <>
               <div className="legend-ramp" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 11 }, (_, i) => rampColorAt(legend.ramp, i / 10)).join(', ')})` }} />

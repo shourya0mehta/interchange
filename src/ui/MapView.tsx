@@ -18,6 +18,8 @@ export interface MapViewProps {
   clickable?: boolean;
   /** Filled with a function that grabs the map's pixels (both sides when swiping). */
   captureRef?: React.MutableRefObject<(() => Promise<HTMLCanvasElement[]>) | null>;
+  /** Filled with a function that grabs the basemap alone, and where the data layer sits on it. */
+  captureBaseRef?: React.MutableRefObject<(() => Promise<{ canvas: HTMLCanvasElement; rect: { x: number; y: number; w: number; h: number } } | null>) | null>;
   /** The cursor over the map: where, and which side of the swipe it's on. */
   onHover?: (h: { lonLat: [number, number]; x: number; y: number; side: 'before' | 'after' } | null) => void;
   /** Drawn at the cursor, e.g. the value under it. */
@@ -38,7 +40,7 @@ function grab(m: MlMap): Promise<HTMLCanvasElement> {
   });
 }
 
-export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef, onHover, probe }: MapViewProps) {
+export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef, captureBaseRef, onHover, probe }: MapViewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const aRef = useRef<HTMLDivElement>(null);
   const bRef = useRef<HTMLDivElement>(null);
@@ -64,6 +66,19 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
       if (mapA.current) out.push(await grab(mapA.current));
       if (swipe && mapB.current) out.push(await grab(mapB.current));
       return out;
+    };
+  if (captureBaseRef)
+    captureBaseRef.current = async () => {
+      const a = mapA.current;
+      if (!a || !corners) return null;
+      const has = !!a.getLayer('layer');
+      if (has) a.setLayoutProperty('layer', 'visibility', 'none');
+      const canvas = await grab(a);
+      if (has) a.setLayoutProperty('layer', 'visibility', 'visible');
+      const dpr = canvas.width / (a.getContainer().clientWidth || 1);
+      const tl = a.project(corners[0]);
+      const br = a.project(corners[2]);
+      return { canvas, rect: { x: tl.x * dpr, y: tl.y * dpr, w: (br.x - tl.x) * dpr, h: (br.y - tl.y) * dpr } };
     };
   // The moment new pixels land, a scan line sweeps down the map, like a downlink.
   const [downlink, setDownlink] = useState(0);

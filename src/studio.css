@@ -887,3 +887,17 @@ a.btn {
   font-size: 13px;
   font-weight: 600;
 }
+
+.published-band {
+  display: flex;
+  gap: 12px;
+}
+
+.gif-maker {
+  border-top: 1px solid var(--rule);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+.gif-maker h3 {
+  margin: 0 0 4px;
+}

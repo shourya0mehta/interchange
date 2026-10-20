@@ -1,41 +1,40 @@
 # Interchange design notes
 
 ## The idea in one line
-A transit system for Earth observation. Datasets are stations, Earth spheres are lines, a person's project is a route, and the app is where the route ends.
+A satellite's printout you can talk to. The planet is drawn in type from real data, a scan line marks anything new, and a highlighter marks what's yours.
+
+The transit idea from v1 stays where it explains something: datasets are stations on lines for each Earth sphere, a build is a route, the read-back sign flips like a departure board, the examples are a departures board, and a published link is printed as a ticket.
 
 ## Tokens
 | Token | Value | Use |
 | --- | --- | --- |
-| paper | #F5F6F3 | Page. Cool enamel off-white, not cream |
-| ink | #222629 | Text |
-| signal black | #000000 | The signage band only (true black, as on subway signs) |
-| rule | #D7DAD4 | Dividers, quiet strokes |
-| mute | #6B7177 | Secondary text |
-| line colors | atmosphere #D4A017, biosphere #2E8B3E, hydrosphere #1F64B5, cryosphere #2BA3B8, lithosphere #B4532A | Category only: which sphere a station serves, and the active route |
+| fog | #E7EAEC | Behind maps and previews |
+| paper | #ECEEF0 | Page |
+| surface | #F7F8F8 | Panels, inputs, cards |
+| ink | #121518 | Text, rules, the band, primary buttons |
+| graphite | #5E656C | Secondary text |
+| cobalt | #1D3FD6 | The signal: scan lines, the satellite, focus rings, Publish |
+| highlighter | #E4EE4A | Fills only, never text: hover passes, the place you asked about, what changed, the probe |
+| data inks | land cover: crop #B98B10, forest #2D6A3E, grass #7E8F3E, desert #A9814E, cities #D2462C, ice #6F9DBA; sea: cold #354E96 to warm #CE4A2C | The globe's glyphs only |
 
-Type: Overpass (open source, drawn from Highway Gothic, the US road-sign face) for everything; Overpass Mono only for dataset IDs a person might copy. Scale 13 / 15 / 18 / 24 / 36, weights 400 / 600 / 800.
+Type: IBM Plex Sans Condensed for headings, buttons and labels; IBM Plex Sans for reading; IBM Plex Mono only where a value is data (the globe's glyphs, the read-back sign, the probe, coordinates).
+
+## Signature moments
+1. **The globe.** A canvas of characters, one per half-degree cell of ESA CCI land cover and NOAA sea surface temperature, in orthographic projection. Glyph and ink both carry meaning (`=` cropland, `#` forest, `~` warm sea). It turns to the place in the question, marks it with highlighter, and the satellite named in the read-back sweeps its real swath width (Sentinel-2 290 km, MODIS 2,330 km). Hover reads out what's under the cursor; click asks about that spot.
+2. **Tasking.** Pressing Build on the home page re-aims the orbit so the next pass goes over your place, then opens the studio.
+3. **Departure board.** The read-back values flip letter by letter when they change.
+4. **Downlink.** New pixels on a map arrive under a cobalt scan line that sweeps top to bottom.
+5. **Highlighter.** Buttons and chips get a highlighter pass on hover; the primary button gets a scan line instead.
+6. **Ticket.** Publish prints the route as a ticket; copying the link tears the stub.
+
+All of it stops under reduced motion: the globe holds still, flips and sweeps are instant.
 
 ## Layout
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ ◉ Interchange   Network  Route  App   [ What do you want to see? ][Plan] │  black signage band
-├────────────────────────────────────────────────────────────────────┤
-│ Network: full-width transit map, dossier slides in from the right   │
-│ Route:   candidate lines (left, ~440px) │ map of the place (right)  │
-│ App:     live app, full bleed, with a thin builder rail             │
-└────────────────────────────────────────────────────────────────────┘
-```
-Left-aligned text everywhere; the map carries the visual weight.
-
-## Principles
-1. The one loud thing is the signage band and the route line. Everything else is quiet paper and ink.
-2. Color only means a sphere. No decorative accents, gradients or shadows.
-3. Lists separated by rules, not cards. A route is drawn, not boxed.
-4. One orchestrated motion: the route line draws itself when a plan arrives; a train dot runs it while data loads. Off under reduced motion.
-5. Copy names things the way a researcher would: "Click for history", "Blend clear days", never "pipeline step".
+- Home: hero (headline, question, sign | globe), three jobs (tab list | real example), how it works (four steps on one scan line), departures board, the network, the comparison with Earth Engine.
+- Studio: conversation and build log on the left (follow-up box pinned at the bottom), the running app on the right. On phones the app sits above the log.
 
 ## Review against the generic defaults
-- Cream + serif + terracotta: avoided. Paper is cool gray-white, type is a sans from road signage, rust is one of five line colors and never an accent.
-- Dark page with one acid accent: avoided. Only the band is black, as on real signage.
-- SaaS cards: avoided. Routes are line diagrams on rules; the dossier is a sign, not a card.
-- Mono for small labels: only for dataset IDs.
+- Dark page with neon glow: avoided. The page is light fog; only the band and the boards are ink.
+- Cream, serif and terracotta: avoided. Cool gray paper, a condensed engineering sans, cobalt and highlighter.
+- Dotted glow globe: avoided. Every character is a measurement, and the key says which.
+- SaaS cards: avoided. Rules and lists; the only boxed things are the ones that are objects (a ticket, a sign, a figure).

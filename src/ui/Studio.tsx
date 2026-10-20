@@ -122,7 +122,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
   const [draft, setDraft] = useState('');
   const [pinned, setPinned] = useState<string | null>(initialStation && STATION_BY_ID[initialStation] ? initialStation : null);
   const [apiKey, setApiKey] = useState(loadKey);
-  const [modal, setModal] = useState<null | { kind: 'share' } | { kind: 'key' } | { kind: 'place'; text: string } | { kind: 'ee'; code: string } | { kind: 'route' }>(null);
+  const [modal, setModal] = useState<null | { kind: 'share' } | { kind: 'key' } | { kind: 'place'; text: string; area?: boolean } | { kind: 'ee'; code: string } | { kind: 'route' }>(null);
   const [dossier, setDossier] = useState<string | null>(null);
   const [stop, setStop] = useState<StopKey | null>(null);
   const turnId = useRef(0);
@@ -382,6 +382,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
                     onRestore={() => setCurrent(t.version)}
                     onRide={ride}
                     onDetails={() => setModal({ kind: 'route' })}
+                    onArea={() => setModal({ kind: 'place', text: '', area: true })}
                     onAbout={(id) => setDossier(id)}
                     onExport={(code) => setModal({ kind: 'ee', code })}
                   />
@@ -508,13 +509,16 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
               )}
               {modal.kind === 'place' && (
                 <PlacePicker
-                  initial={parseGoal(modal.text).place ?? ''}
+                  initial={modal.area ? (v?.place.name ?? '') : (parseGoal(modal.text).place ?? '')}
                   onCancel={close}
                   onPick={(p) => {
                     close();
                     // Drop the failed attempt from the log; the retry carries the picked place.
                     setTurns((prev) => prev.filter((t) => !(t.who === 'ic' && t.kind === 'problem')));
-                    if (v && modal.text && !parseGoal(modal.text).place) build(v.intent, p, [`Place: ${p.name}`]);
+                    if (v && (modal.area || (modal.text && !parseGoal(modal.text).place))) {
+                      if (modal.area) push({ who: 'you', text: `Use ${p.name} as the area` });
+                      build(v.intent, p, [`Place: ${p.name}`]);
+                    }
                     else start(modal.text || 'Greenness this summer', p);
                   }}
                 />
@@ -547,7 +551,9 @@ function BuiltTurn({
   onDetails,
   onAbout,
   onExport,
+  onArea,
 }: {
+  onArea: () => void;
   turn: Extract<Turn, { kind: 'built' }>;
   version: Version | undefined;
   isCurrent: boolean;
@@ -588,6 +594,9 @@ function BuiltTurn({
           <>
             <button className="chip" onClick={onDetails}>
               See every step
+            </button>
+            <button className="chip" onClick={onArea}>
+              Change the area
             </button>
             <button className="chip" onClick={() => onAbout(route.station)}>
               About {shortName(STATION_BY_ID[route.station])}

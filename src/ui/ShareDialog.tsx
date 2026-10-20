@@ -175,6 +175,52 @@ function ImagePanel({ spec, apiRef }: { spec: AppSpec; apiRef: MutableRefObject<
           Download PNG
         </button>
       </div>
+      {apiRef.current?.exportGif && <GifMaker spec={spec} apiRef={apiRef} />}
+    </div>
+  );
+}
+
+function GifMaker({ spec, apiRef }: { spec: AppSpec; apiRef: MutableRefObject<AppApi | null> }) {
+  const [state, setState] = useState<{ k: 'idle' } | { k: 'drawing'; done: number; of: number } | { k: 'ready'; url: string; blob: Blob } | { k: 'error'; message: string }>({ k: 'idle' });
+  useEffect(() => () => void (state.k === 'ready' && URL.revokeObjectURL(state.url)), [state]);
+  const make = () => {
+    const f = apiRef.current?.exportGif;
+    if (!f) return;
+    setState({ k: 'drawing', done: 0, of: spec.windows.length });
+    f((done, of) => setState({ k: 'drawing', done, of }))
+      .then((blob) => setState({ k: 'ready', url: URL.createObjectURL(blob), blob }))
+      .catch((e: Error) => setState({ k: 'error', message: e.message }));
+  };
+  return (
+    <div className="gif-maker">
+      <h3>Animated GIF</h3>
+      <p>One frame per date, {spec.windows.length} in all, for a post or a slide that moves.</p>
+      {state.k === 'ready' && (
+        <div className="image-preview">
+          <img src={state.url} alt={`Animated preview: ${spec.title}`} />
+        </div>
+      )}
+      {state.k === 'drawing' && (
+        <p className="hint" role="status">
+          Drawing frame {state.done + 1 > state.of ? state.of : state.done + 1} of {state.of}
+        </p>
+      )}
+      {state.k === 'error' && (
+        <p className="error" role="alert">
+          Couldn't make the GIF: {state.message}.
+        </p>
+      )}
+      <div className="route-actions">
+        {state.k === 'ready' ? (
+          <button className="btn btn-primary" onClick={() => download(`${slug(spec.title)}.gif`, state.blob, 'image/gif')}>
+            Download GIF
+          </button>
+        ) : (
+          <button className="btn" onClick={make} disabled={state.k === 'drawing'} aria-busy={state.k === 'drawing'}>
+            <span>{state.k === 'drawing' ? 'Drawing' : 'Make the GIF'}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
-import { composeImage, type ExportFormat, type ExportLegend } from './exportImage';
+import { composeGif, composeImage, type ExportFormat, type ExportLegend } from './exportImage';
 import { creditLine } from '../compiler/credit';
 import type { AppSpec } from '../compiler/spec';
 import { METHOD_BY_ID, SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
@@ -20,6 +20,8 @@ type Status = { state: 'idle' } | { state: 'loading'; message: string } | { stat
 /** What the studio can ask of a running app. */
 export interface AppApi {
   exportImage: (format: ExportFormat) => Promise<Blob>;
+  /** Only when the app has more than one date. */
+  exportGif?: (onFrame?: (done: number, of: number) => void) => Promise<Blob>;
 }
 
 
@@ -162,6 +164,7 @@ export function AppRuntime({
   const sigName = SIGNAL_NAMES[spec.signal]?.short ?? spec.signal;
   const windowLabel = swipe ? `${spec.windows[0].label} and ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label;
   const captureRef = useRef<(() => Promise<HTMLCanvasElement[]>) | null>(null);
+  const captureBaseRef = useRef<(() => Promise<{ canvas: HTMLCanvasElement; rect: { x: number; y: number; w: number; h: number } } | null>) | null>(null);
   const [hoverAt, setHoverAt] = useState<{ lonLat: [number, number]; side: 'before' | 'after' } | null>(null);
   const probe = useMemo(() => {
     if (!hoverAt) return null;
@@ -205,6 +208,25 @@ export function AppRuntime({
         const labels = swipe && !change ? [spec.windows[0].label, spec.windows[1].label] : [change ? `Change, ${spec.windows[0].label} to ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label];
         return composeImage(spec, swipe && !change ? maps : maps.slice(-1), lg, labels, format);
       },
+      exportGif:
+        spec.windows.length > 1 && STATION_BY_ID[spec.station].temporal !== 'static'
+          ? async (onFrame) => {
+              const results = await Promise.all(spec.windows.map((w) => layers[keyOf(w)] ?? pending.current.get(keyOf(w)) ?? evaluateLayer(recipe, grid, w)));
+              const dom = sharedDomain(results);
+              const base = await captureBaseRef.current?.();
+              if (!base) throw new Error('The map is still loading');
+              const first = results[0];
+              const lg: ExportLegend = first && legendFor(first, false, dom).kind === 'ramp' ? { kind: 'ramp', title: '', ramp: (legendFor(first, false, dom) as { ramp: NonNullable<typeof ramp> }).ramp } : { kind: 'none' };
+              return composeGif(
+                spec,
+                base,
+                results.map((r) => ({ rgba: layerRgba(r, undefined, dom), width: r.grid.width, height: r.grid.height })),
+                spec.windows.map((w) => w.label),
+                lg,
+                (i) => onFrame?.(i + 1, results.length),
+              );
+            }
+          : undefined,
     };
 
   const readerNotes = (spec.notes || spec.questions?.length) && mode !== 'builder' && (
@@ -234,6 +256,7 @@ export function AppRuntime({
       onClick={chartable ? runSeries : undefined}
       clickable={chartable}
       captureRef={captureRef}
+      captureBaseRef={captureBaseRef}
       onHover={(h) => setHoverAt(h ? { lonLat: h.lonLat, side: h.side } : null)}
       probe={probe}
     />

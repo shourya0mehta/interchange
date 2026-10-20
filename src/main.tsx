@@ -20,6 +20,7 @@ import { setUrlSigner } from './runtime/cog';
 import { signPlanetaryComputer } from './runtime/stac';
 import { Landing } from './landing/Landing';
 import { AppRuntime } from './ui/AppRuntime';
+import { BrandMark } from './ui/BrandMark';
 import { Studio } from './ui/Studio';
 import { Swap } from './ui/Swap';
 
@@ -56,7 +57,17 @@ function Published({ token }: { token: string }) {
   }
   document.title = `${spec.title} | Interchange`;
   return (
-    <div className="shell" style={{ gridTemplateRows: '1fr' }}>
+    <div className="shell">
+      <header className="band published-band">
+        <a className="brand" href="./" aria-label="Interchange, home">
+          <BrandMark />
+          <span>Interchange</span>
+        </a>
+        <span className="band-spacer" />
+        <a className="btn btn-signal" href="#build">
+          Make your own map
+        </a>
+      </header>
       <main className="view">
         <AppRuntime spec={spec} mode="published" onFork={() => (location.hash = `fork=${token}`)} />
       </main>

@@ -1,37 +1,43 @@
 # Interchange
 
-**Type a question about the planet, get a live map app that answers it, and see which satellites and methods it rode to get there.**
+**Ask the planet a question in plain words. Get a satellite map you can publish as a link, an embed or a slide.**
 
-Try it: **[shourya0mehta.github.io/interchange](https://shourya0mehta.github.io/interchange/)**. Type a question on the landing page (or open one of the Departures), press Build this map, then Publish link.
+Try it: **[shourya0mehta.github.io/interchange](https://shourya0mehta.github.io/interchange/)**. Type a question on the home page and press Build this map, or open the studio and start from a job.
 
-Interchange is a prompt-to-app builder for Earth observation. You write one sentence ("compare greenness in Fresno County, California in summer 2019 vs summer 2025"). Interchange draws your project as a route across a transit map of the observing system: a data station, method stops, and an app at the end of the line. Every stop can be inspected and swapped. When the route looks right, it compiles into a map app with a share link that opens for anyone, no login.
+Interchange is a prompt-to-app builder for Earth observation, a Base44 for satellite maps. You write one sentence ("compare greenness of fields in Fresno County, summer 2019 vs summer 2025") and the studio builds a live map app straight away, showing each step it took: the place it found, the dataset it chose and why, the dates and the method. You refine it by asking ("compare with 2010 instead", "use Landsat", "zoom out", "add a history chart where I click"); every version stays one click away. When it's right, Publish gives you a link that holds the whole app, an embed with the data provider's credit line, a 16:9 or square image with legend and credits, or the Earth Engine script.
 
 Everything runs in the browser on open data. There is no server, no account and no compute bill.
 
-![Landing page: a typed question read back on the sign, and its route drawn across the network](docs/landing.jpg)
+![Home page: the planet drawn in type from real data, with the question read back on a departure-board sign](docs/landing.jpg)
 
-| Ask: the sign reads back what it heard | Route: candidates with trade-offs |
+| The studio: a question becomes a running app | Ask for a change: older years move it to Landsat |
 | --- | --- |
-| ![Ask step with the read-back sign](docs/ask.jpg) | ![Candidate routes with trade-offs](docs/route.jpg) |
-| **Swipe app: Fresno County greenness, summer 2019 vs 2025** | **Click-for-history app: Tompkins County fields since 2018** |
-| ![Before and after swipe](docs/app-swipe.jpg) | ![Map with a history chart](docs/app-history.jpg) |
-| **Sea surface temperature: the Gulf of Mexico, last summer** | |
-| ![Sea surface temperature over the Gulf of Mexico](docs/app-sst.jpg) | |
+| ![Studio with the build log on the left and the app on the right](docs/studio.jpg) | ![A follow-up request rebuilding the map](docs/follow-up.jpg) |
+| **Publish: a slide image with legend and credits** | **Embed: the map inside a story, with its credit line** |
+| ![Publish dialog drawing a 16:9 image](docs/publish-image.jpg) | ![Embedded map](docs/embed.jpg) |
+
+## Who it's for
+
+Research into who builds simple satellite map apps (see DECISIONS.md) pointed at three jobs:
+
+- **Newsrooms**: a credible satellite visual for today's story without a GIS desk. Embed code sized for phones, the credit line in each provider's wording, a methods note, and images for social.
+- **Classrooms**: a link students open with no accounts, with questions to explore beside the map, history on click and CSV that opens in Sheets.
+- **Field offices** (extension and crop advisors): this season against past ones, county by county, with area totals and a slide image.
 
 ## How it works
 
 ```
-sentence ─▶ intent ─▶ candidate routes ─▶ type check ─▶ app spec ─▶ live app / share link
-             │            │                                │
-   rule reader or      network.ts: 24 stations,       runtime: reads COG windows
-   Claude (your key)   9 methods, 7 components        straight from open buckets
+sentence ─▶ intent ─▶ place ─▶ candidate routes ─▶ type check ─▶ app spec ─▶ live app ─▶ link / embed / image
+   ▲                                                                              │
+   └──────────── follow-up request: only what it mentions changes ◀───────────────┘
 ```
 
-1. **Read the goal, and say what was heard.** A rule-based reader pulls out the theme (greenness, floods, fire, snow, heat, rain, crops, ocean temperature...), the place, the dates and the app shape (swipe, time slider, click-for-history, region stats). It doesn't depend on capital letters: a vocabulary of non-place words, a gazetteer of oceans, seas and big regions, coordinates in several notations, named disasters ("hurricane harvey" brings its month and city) and common misspellings. A black sign under the question reads it all back as you type, and looks the place up. With an Anthropic API key, Claude Haiku reads the goal instead, constrained by a JSON schema to the network's own vocabulary.
-2. **Plan routes.** Each theme has candidate stations in order of fit. The planner fits the dates to each station's record (Sentinel-2 can't see 2010, so the route transfers to Landsat), picks methods, and lays out the trade-offs: detail, revisit, years, clouds, and whether it runs live.
-3. **Type-check.** A route is a typed program. `scene` flows into `index` and comes out `raster`; a click-for-history chart only accepts a `raster` from a station that changes over time; a swipe needs exactly two windows. Bad routes never reach the app.
-4. **Compile.** The route becomes an `AppSpec` small enough to live in the URL (`#app=...`, 500 to 700 characters compressed). Publishing is copying a link.
-5. **Run.** The runtime searches STAC catalogs (Earth Search, Planetary Computer), reads only the COG windows it needs at an overview level matched to the screen, masks clouds with each scene's own classification, blends up to three clear days, computes the index, reprojects into a Web Mercator grid and draws it under MapLibre's labels.
+1. **Read the question, and say what was heard.** A rule-based reader pulls out the theme, the place, the dates and the app shape. It doesn't depend on capital letters: a vocabulary of non-place words, a gazetteer of oceans, seas and big regions, coordinates in several notations ("lat 36.7 lon -119.8"), named disasters ("hurricane harvey" brings its month and city), misspellings, "right now", "in July", "hotter than", "shrinking". The sign under the question reads it back as you type, letter by letter like a departure board, and the globe turns to the place. With an Anthropic API key, Claude Haiku reads the question instead.
+2. **Plan routes.** Each theme has candidate datasets in order of fit. The planner fits the dates to each dataset's record (Sentinel-2 can't see 2010, so the route transfers to Landsat), ranks by how much of the place and the dates each covers, and keeps the others as "other ways to build it".
+3. **Type-check and compile.** A route is a typed program; a swipe needs exactly two windows, a history chart needs a dataset that changes over time. The route becomes an `AppSpec` small enough to live in the URL.
+4. **Run.** The runtime searches STAC catalogs (Earth Search, Planetary Computer), reads only the COG windows it needs at an overview matched to the screen, masks clouds with each scene's own classification, blends up to three clear days, computes the index, reprojects into a Web Mercator grid and draws it under MapLibre's labels. New pixels arrive under a scan line, and a probe under the cursor reads out the value there.
+5. **Refine.** A follow-up request changes only what it mentions (dates, place, dataset, view or zoom) and rebuilds.
+6. **Publish.** A link, an embed (`#embed=`), a PNG drawn from the map canvases with title, dates, legend and credit line, or an Earth Engine script.
 
 ## What it can answer today
 
@@ -69,8 +75,7 @@ Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic Wo
 - Tompkins County NDVI from Sentinel-2: about 3 seconds for a 768-pixel grid, from STAC search to pixels (Node, same code path as the browser).
 - Click-for-history at a farm field, one year of Sentinel-2: 57 scenes searched, 36 clear looks, under 6 seconds.
 - Gallery test: 10 of 10 sampled public Earth Engine apps rebuilt from one sentence with no hand edits (`test/gallery.test.ts`).
-- Feel (kymo, desktop and phone): 22 findings after the redesign (2 errors, 7 warnings, 13 suggestions) down to 10 warnings. What's left is MapLibre's first frame under headless software WebGL and view changes the probe reads as lost content.
-- Browser smoke test: 21 checks across the landing page, the Ask, Route and App steps, publishing, a history chart, land cover stats, sea surface temperature, the place picker and phone layouts, zero console errors (`scripts/smoke.mjs`).
+- Browser smoke test: 28 checks across the home page and globe, the studio from a question to an app, a follow-up request, publishing as a link, embed and image, embed mode, a history chart, land cover totals, sea surface temperature, the place picker and phone layouts, zero console errors (`scripts/smoke.mjs`).
 
 ## What is not built
 

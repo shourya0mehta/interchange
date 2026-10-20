@@ -56,3 +56,20 @@ describe('Photon ranking for countries', () => {
     expect(photonScore(country, 'bangladesh')).toBeGreaterThan(photonScore(quarter, 'bangladesh'));
   });
 });
+
+describe('Boundary files', () => {
+  it('reads the box around a GeoJSON field', async () => {
+    const { boundaryBbox } = await import('../src/ui/PlacePicker');
+    const gj = JSON.stringify({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[-93.70, 42.00], [-93.65, 42.00], [-93.65, 42.04], [-93.70, 42.04], [-93.70, 42.00]]] } });
+    expect(boundaryBbox(gj)).toEqual([-93.7, 42, -93.65, 42.04]);
+  });
+  it('reads KML coordinates', async () => {
+    const { boundaryBbox } = await import('../src/ui/PlacePicker');
+    const kml = '<kml><Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>-120.1,36.1,0 -119.9,36.1,0 -119.9,36.3,0 -120.1,36.1,0</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></kml>';
+    expect(boundaryBbox(kml)).toEqual([-120.1, 36.1, -119.9, 36.3]);
+  });
+  it('rejects files with no coordinates', async () => {
+    const { boundaryBbox } = await import('../src/ui/PlacePicker');
+    expect(boundaryBbox('hello')).toBeNull();
+  });
+});

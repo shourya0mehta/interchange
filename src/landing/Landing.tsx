@@ -155,6 +155,7 @@ export function Landing() {
   const jobs = useMemo(() => JOBS.map((j) => ({ ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions }) })), []);
   const liveCount = STATIONS.filter((s) => s.live).length;
   const [howRef, howSeen] = useInView<HTMLOListElement>();
+  const [boardRef, boardSeen] = useInView<HTMLTableElement>();
   const active = jobs.find((j) => j.id === job)!;
 
   useEffect(() => {
@@ -387,7 +388,7 @@ export function Landing() {
             <h2 id="dep-title">Departures</h2>
             <p>Real apps, each one a link. The data loads live from open catalogs when you open it, so give a big area a few seconds.</p>
           </div>
-          <table className="board">
+          <table className="board" ref={boardRef}>
             <thead>
               <tr>
                 <th scope="col">To</th>
@@ -399,7 +400,9 @@ export function Landing() {
             <tbody>
               {deps.map((d) => (
                 <tr key={d.q}>
-                  <td className="board-to">{d.place.name}</td>
+                  <td className="board-to">
+                    <SplitFlap text={boardSeen ? d.place.name : d.place.name.replace(/[^ ,]/g, ' ')} />
+                  </td>
                   <td className="board-line">
                     <span className="line-badge" style={{ background: LINE_BY_ID[d.st!.lines[0]].color }} aria-hidden="true" />
                     {shortName(d.st!)}

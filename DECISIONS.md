@@ -60,3 +60,18 @@ When Nominatim and Photon both fail outright (an HTTP error or no answer, as opp
 - "In July" with no year: the latest July that has ended.
 - "Shrinking", "retreating", "drying up", "hotter than": a before and after, six years apart when no years are given.
 - Rain during a named storm is that month's total; other storm questions are a before and after.
+
+## Built for three jobs (October 2026 research)
+A look at who actually builds simple satellite map apps found the open gap: nothing free and no-login turns one sentence into an embeddable map that mixes imagery with long climate records and land cover, with the citations included. The three best fits are local newsrooms (embed, credit line, social image), teachers (no-account links, questions beside the map, CSV) and extension offices (county comparisons, slide images). Insurers and claims teams are a poor fit: they need building-level answers, contracts and audit trails.
+
+## A studio instead of a three-step builder
+Prompt-to-app tools all put the conversation on the left and the running app on the right, and go straight to something that works. The old Ask, Route, App steps made people choose a route before they had seen anything. Now the best route builds at once, the steps it took are shown as a log, the other routes are one-tap chips, and follow-up requests change only what they mention. The route editor is still there behind "See every step".
+
+## The globe is drawn from real data
+A plain ASCII Earth is now an off-the-shelf component, so this one only earns its place if the characters mean something. `scripts/build-globe-data.mjs` reads the 32 ESA CCI 2020 land cover tiles at a coarse overview and the latest NOAA OISST day, and writes a 128 KB half-degree grid. CCI calls the sea "water bodies" too, so any cell with an OISST reading is ocean.
+
+## Credit lines in the provider's wording
+Newsrooms are asked to credit Copernicus data as "Contains modified Copernicus Sentinel data [year]"; Landsat, MODIS, NOAA, USDA and the land cover products each have their own preferred wording. The embed, the methods note and the exported image all carry the right one.
+
+## Photon names countries in their own language
+Photon returns Bangladesh as "বাংলাদেশ", so an exact-name bonus went to a neighborhood called Bangladesh in Mombasa. Countries and states now also match on Photon's English country and state fields, and are named in English.

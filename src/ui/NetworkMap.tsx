@@ -69,15 +69,21 @@ function layout(): Placed[] {
       perLine.set(l, [...(perLine.get(l) ?? []), s]);
     }
   }
+  // Labels go on the lowest free row above their line, measured by an estimate of their width,
+  // so neighbors never print over each other.
+  const widthOf = (s: Station) => shortName(s).length * 6.7 + 10;
   for (const [l, list] of perLine) {
     list.sort((a, b) => a.x - b.x);
-    list.forEach((s, i) => {
+    const rows: [number, number][][] = [[], [], []];
+    for (const s of list) {
       const y = lineY[l];
-      // Stagger crowded neighbors so labels never collide.
-      const prev = list[i - 1];
-      const crowded = prev && s.x - prev.x < 110 && i % 2 === 1;
-      out.push({ station: s, x: xOf(s), y0: y, y1: y, labelY: crowded ? y - 34 : y - 16, anchor: 'middle' });
-    });
+      const x = xOf(s);
+      const half = widthOf(s) / 2;
+      let row = rows.findIndex((spans) => spans.every(([a, b]) => x + half < a || x - half > b));
+      if (row < 0) row = rows.length - 1;
+      rows[row].push([x - half, x + half]);
+      out.push({ station: s, x, y0: y, y1: y, labelY: y - 16 - row * 17, anchor: 'middle' });
+    }
   }
   return out;
 }

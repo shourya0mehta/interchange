@@ -104,6 +104,8 @@ const embedCode = await page.locator('.share-code').first().innerText();
 ok('embed code has an iframe and a credit line', embedCode.includes('<iframe') && embedCode.includes('Landsat imagery courtesy'));
 await page.getByRole('tab', { name: 'Image' }).click();
 await page.waitForSelector('.image-preview img', { timeout: 30_000 });
+// Let the picture finish printing in under the scan line before the screenshot.
+await page.waitForTimeout(1200);
 await page.screenshot({ path: `${OUT}/4-publish-image.png` });
 ok('slide image is drawn', (await page.locator('.image-preview img').count()) === 1);
 await page.getByRole('button', { name: 'Done' }).click();

@@ -24,6 +24,8 @@ export interface MapViewProps {
   onHover?: (h: { lonLat: [number, number]; x: number; y: number; side: 'before' | 'after' } | null) => void;
   /** Drawn at the cursor, e.g. the value under it. */
   probe?: React.ReactNode;
+  /** An uploaded boundary to outline instead of the box. */
+  shape?: [number, number][][];
 }
 
 function grab(m: MlMap): Promise<HTMLCanvasElement> {
@@ -40,7 +42,7 @@ function grab(m: MlMap): Promise<HTMLCanvasElement> {
   });
 }
 
-export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef, captureBaseRef, onHover, probe }: MapViewProps) {
+export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef, captureBaseRef, onHover, probe, shape }: MapViewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const aRef = useRef<HTMLDivElement>(null);
   const bRef = useRef<HTMLDivElement>(null);
@@ -138,7 +140,7 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
       if (e.sourceId || e.tile || e.error?.status) setTiles('error');
     });
     whenStyled(a).then(() => {
-      setAoi(a, bbox);
+      setAoi(a, bbox, '#000', shape);
       setReady(true);
     });
     return () => {
@@ -160,7 +162,7 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
     a.on('move', sync);
     whenStyled(b).then(() => {
       sync();
-      setAoi(b, bbox);
+      setAoi(b, bbox, '#000', shape);
       setReady((r) => r);
     });
     return () => {

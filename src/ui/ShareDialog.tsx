@@ -22,7 +22,8 @@ export function ShareDialog({ spec, route, apiRef, onClose }: { spec: AppSpec; r
   const base = `${location.origin}${location.pathname}`;
   const url = `${base}#app=${token}`;
   const embedUrl = `${base}#embed=${token}`;
-  const iframe = `<iframe src="${embedUrl}" title="${spec.title.replace(/"/g, '&quot;')}" width="100%" height="520" style="border:0" loading="lazy" allow="fullscreen"></iframe>\n<p style="font-size:12px">${creditLine(spec)} ${BASEMAP_CREDIT}.</p>`;
+  // A box that keeps its shape on phones, with the credit line underneath.
+  const iframe = `<div style="position:relative;width:100%;aspect-ratio:16/10;min-height:360px">\n  <iframe src="${embedUrl}" title="${spec.title.replace(/"/g, '&quot;')}" style="position:absolute;inset:0;width:100%;height:100%;border:0" loading="lazy" allow="fullscreen"></iframe>\n</div>\n<p style="font-size:12px">${creditLine(spec)} ${BASEMAP_CREDIT}.</p>`;
   const st = STATION_BY_ID[spec.station];
   const [torn, setTorn] = useState(false);
 

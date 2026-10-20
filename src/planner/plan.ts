@@ -17,6 +17,8 @@ export function previewCap(stationId: string): number {
 export interface Place {
   name: string;
   bbox: Bbox;
+  /** An uploaded boundary (outer rings, lon/lat), for masking the map and its totals. */
+  shape?: [number, number][][];
   /** Said once under the routes when the box is a compromise (oceans that cross the date line). */
   note?: string;
 }
@@ -383,7 +385,7 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
     // Each dataset previews as much of the place as it can read quickly; export routes take it all.
     const cap = previewCap(st.id);
     const capped = place && st.live ? capBbox(place.bbox, cap) : place ? { bbox: place.bbox, capped: false } : null;
-    const aoi = place ? { name: place.name, bbox: capped!.bbox, capped: capped!.capped } : { name: 'Pick a place', bbox: [0, 0, 0, 0] as Bbox };
+    const aoi = place ? { name: place.name, bbox: capped!.bbox, capped: capped!.capped, shape: place.shape } : { name: 'Pick a place', bbox: [0, 0, 0, 0] as Bbox };
     const methods = methodsFor(st, c.signal, wantsChange && fit.windows.length === 2);
     const output = st.provides === 'scene' ? (c.signal === 'true-color' ? 'image' : 'raster') : st.provides;
     const { views, notes: viewNotes } = chooseViews(st, intent, output, fit.windows.length);

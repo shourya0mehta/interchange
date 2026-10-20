@@ -1,0 +1,8 @@
+{
+  "type": "FeatureCollection",
+  "name": "Two quarter sections west of Ames, Story County, Iowa (sample)",
+  "features": [
+    { "type": "Feature", "properties": { "name": "North field" }, "geometry": { "type": "Polygon", "coordinates": [[[-93.7302, 42.0405], [-93.7206, 42.0405], [-93.7206, 42.0477], [-93.7302, 42.0477], [-93.7302, 42.0405]]] } },
+    { "type": "Feature", "properties": { "name": "South field" }, "geometry": { "type": "Polygon", "coordinates": [[[-93.7302, 42.0261], [-93.7206, 42.0261], [-93.7206, 42.0333], [-93.7302, 42.0333], [-93.7302, 42.0261]]] } }
+  ]
+}

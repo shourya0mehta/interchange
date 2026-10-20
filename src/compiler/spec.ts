@@ -15,7 +15,7 @@ export interface AppSpec {
   title: string;
   /** The sentence the app was built from. */
   question: string;
-  aoi: { name: string; bbox: Bbox };
+  aoi: { name: string; bbox: Bbox; shape?: [number, number][][] };
   station: string;
   signal: Signal;
   methods: MethodId[];
@@ -50,7 +50,11 @@ export function compileRoute(route: Route, question: string, now = new Date()): 
       v: 1,
       title: `${route.aoi.name}: ${sig}`,
       question,
-      aoi: { name: route.aoi.name, bbox: route.aoi.bbox.map((n) => Math.round(n * 1e5) / 1e5) as Bbox },
+      aoi: {
+        name: route.aoi.name,
+        bbox: route.aoi.bbox.map((n) => Math.round(n * 1e5) / 1e5) as Bbox,
+        ...(route.aoi.shape ? { shape: route.aoi.shape.map((ring) => ring.map(([x, y]) => [Math.round(x * 1e5) / 1e5, Math.round(y * 1e5) / 1e5] as [number, number])) } : {}),
+      },
       station: st.id,
       signal: route.signal,
       methods: route.methods,

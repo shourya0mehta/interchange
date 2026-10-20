@@ -54,12 +54,14 @@ export function setImageLayer(
   }
 }
 
-export function setAoi(map: MlMap, bbox: Bbox, color = '#000'): void {
+export function setAoi(map: MlMap, bbox: Bbox, color = '#000', shape?: [number, number][][]): void {
   const [w, s, e, n] = bbox;
   const data = {
     type: 'Feature' as const,
     properties: {},
-    geometry: { type: 'Polygon' as const, coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
+    geometry: shape?.length
+      ? { type: 'MultiPolygon' as const, coordinates: shape.map((r) => [r]) }
+      : { type: 'Polygon' as const, coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
   };
   const src = map.getSource('aoi') as GeoJSONSource | undefined;
   if (src) src.setData(data);

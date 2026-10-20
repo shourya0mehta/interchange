@@ -22,6 +22,8 @@ import { shortName } from './NetworkMap';
 import { whenWords } from './readback';
 import { KeyForm, CopyButton, loadKey, saveKey } from './keys';
 import { daysAgo, latestLook } from '../runtime/latest';
+import { forgetMaps, loadRecent, rememberMap } from './recent';
+import { useSlashFocus } from './useSlash';
 
 /** What one build looked like, so any earlier version can be brought back. */
 interface Version {
@@ -92,6 +94,10 @@ function stepsFor(intent: Intent, place: Place, route: Route): Step[] {
     { label: 'Heard', value: `${THEME_WORDS[intent.theme][0].toUpperCase()}${THEME_WORDS[intent.theme].slice(1)}, ${whenWords(intent)}` },
     { label: 'Place', value: place.name },
     { label: 'Data', value: `${st.name}`, note: route.why },
+    {
+      label: 'Dates',
+      value: route.windows.length > 2 ? `${route.windows[0].label} to ${route.windows[route.windows.length - 1].label}, ${route.windows.length} maps` : route.windows.map((w) => w.label).join(' vs '),
+    },
     { label: 'App', value: shows.length ? shows.join(', ') : 'a map with a legend' },
   ];
 }
@@ -296,6 +302,13 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
   }, []);
 
   const tips = useMemo(() => (v ? suggestions(v.intent, route, v.routes) : []), [v, route]);
+  const [recent, setRecent] = useState(loadRecent);
+  useSlashFocus(['follow-input', 'goal']);
+  // Remember each map that builds, so it can be reopened from the start screen later.
+  useEffect(() => {
+    if (spec) rememberMap(spec);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spec?.title, spec?.aoi.name, spec?.station, spec?.windows.map((w) => w.start).join()]);
   const empty = turns.length === 0;
 
   return (
@@ -311,6 +324,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
             type="button"
             onClick={() => {
               setTurns([]);
+              setRecent(loadRecent());
               versionsRef.current = [];
               setVersions([]);
               setCurrent(-1);
@@ -344,6 +358,33 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
             autoFocus={!initialGoal}
             withGlobe
           />
+          {recent.length > 0 && (
+            <section className="recent" aria-labelledby="recent-title">
+              <div className="recent-head">
+                <h2 id="recent-title">Your maps</h2>
+                <button
+                  className="btn-link"
+                  onClick={() => {
+                    forgetMaps();
+                    setRecent([]);
+                  }}
+                >
+                  Clear this list
+                </button>
+              </div>
+              <ul>
+                {recent.map((r) => (
+                  <li key={r.token}>
+                    <a href={`#fork=${r.token}`} className="recent-map">
+                      <strong>{r.title}</strong>
+                      <span>{r.at}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <p className="hint">Kept in this browser only.</p>
+            </section>
+          )}
           <section className="templates" aria-labelledby="templates-title">
             <h2 id="templates-title">Or start from a job</h2>
             <div className="template-cols">

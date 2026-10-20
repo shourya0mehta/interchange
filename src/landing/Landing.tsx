@@ -13,6 +13,7 @@ import { ReadBackSign } from '../ui/ReadBackSign';
 import { SplitFlap } from '../ui/SplitFlap';
 import { globeProps } from '../ui/AskBox';
 import { useLiveIntent } from '../ui/readback';
+import { useSlashFocus } from '../ui/useSlash';
 
 const REPO = 'https://github.com/shourya0mehta/interchange';
 const base = () => `${location.origin}${location.pathname}`;
@@ -163,6 +164,7 @@ export function Landing() {
   }, []);
 
   const [task, setTask] = useState<{ lat: number; lon: number } | null>(null);
+  useSlashFocus(['hero-goal']);
   // Pressing Build tasks the satellite: it swings round to pass over the place, then the studio opens.
   const build = (q: string) => {
     const p = live.place;

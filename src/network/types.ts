@@ -134,7 +134,7 @@ export interface Route {
   windows: TimeWindow[];
   /** Range for click-for-history charts. */
   historyRange?: { start: string; end: string };
-  aoi: { name: string; bbox: Bbox; capped?: boolean };
+  aoi: { name: string; bbox: Bbox; capped?: boolean; shape?: [number, number][][] };
   runs: 'live' | 'export';
   tradeoffs: Tradeoff[];
   warnings: string[];

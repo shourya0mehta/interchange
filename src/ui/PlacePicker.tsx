@@ -4,6 +4,7 @@ import type { Place } from '../planner/plan';
 import type { Bbox } from '../runtime/geo';
 import { getFetcher } from '../runtime/stac';
 import { createMap, setAoi, whenStyled } from './maplib';
+import { compactShape } from '../runtime/shape';
 
 interface Hit {
   name: string;
@@ -35,7 +36,38 @@ const WORLD: Bbox = [-130, 15, -60, 55];
  * When a place can't be read from the sentence: search for it, or frame it on the map, or drag
  * a box. Whatever is on screen when "Use this area" is pressed becomes the place.
  */
-/** The box around every coordinate in a GeoJSON or KML file: a field, a farm, a district. */
+/** The rings of polygons in a GeoJSON or KML file: a field, a farm, a district. */
+export function boundaryRings(text: string): [number, number][][] {
+  const rings: [number, number][][] = [];
+  const t = text.trim();
+  const isPt = (v: unknown): v is [number, number] => Array.isArray(v) && v.length >= 2 && typeof v[0] === 'number' && typeof v[1] === 'number';
+  if (t.startsWith('{') || t.startsWith('[')) {
+    // A ring is an array of points with at least four entries; collect every one we find.
+    const walk = (v: unknown) => {
+      if (Array.isArray(v)) {
+        if (v.length >= 4 && v.every(isPt)) rings.push(v.map((p) => [p[0], p[1]]));
+        else v.forEach(walk);
+      } else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+    };
+    try {
+      walk(JSON.parse(t));
+    } catch {
+      return [];
+    }
+  } else {
+    for (const m of t.matchAll(/<coordinates>([\s\S]*?)<\/coordinates>/g)) {
+      const ring: [number, number][] = [];
+      for (const c of m[1].trim().split(/\s+/)) {
+        const [x, y] = c.split(',').map(Number);
+        if (Number.isFinite(x) && Number.isFinite(y)) ring.push([x, y]);
+      }
+      if (ring.length >= 4) rings.push(ring);
+    }
+  }
+  return rings;
+}
+
+/** The box around every coordinate in a GeoJSON or KML file. */
 export function boundaryBbox(text: string): Bbox | null {
   const pts: [number, number][] = [];
   const t = text.trim();
@@ -79,14 +111,16 @@ export function PlacePicker({ initial, onPick, onCancel }: { initial: string; on
   const [searchState, setSearchState] = useState<'idle' | 'looking' | 'none' | 'error'>('idle');
   const [fileError, setFileError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const readFile = async (f: File) => {
+  const readFile = async (f: { name: string; text: () => Promise<string> }) => {
     setFileError(null);
-    const b = boundaryBbox(await f.text());
+    const text = await f.text();
+    const b = boundaryBbox(text);
     if (!b) {
       setFileError(`Couldn't find coordinates in ${f.name}. Use a GeoJSON or KML file.`);
       return;
     }
-    show({ name: f.name.replace(/\.(geo)?json$|\.kml$/i, ''), bbox: b });
+    const rings = boundaryRings(text);
+    show({ name: f.name.replace(/\.(geo)?json$|\.kml$/i, ''), bbox: b, ...(rings.length ? { shape: compactShape(rings) } : {}) });
   };
 
   useEffect(() => {
@@ -165,7 +199,7 @@ export function PlacePicker({ initial, onPick, onCancel }: { initial: string; on
     const m = map.current;
     if (!m) return;
     const b = m.getBounds();
-    onPick({ name: chosen && chosen.name !== 'The box you drew' ? chosen.name : 'The area on the map', bbox: chosen?.bbox ?? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+    onPick(chosen ? { ...chosen, name: chosen.name !== 'The box you drew' ? chosen.name : 'The area on the map' } : { name: 'The area on the map', bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
   };
 
   return (
@@ -201,6 +235,18 @@ export function PlacePicker({ initial, onPick, onCancel }: { initial: string; on
         </button>
         <button type="button" className="btn" onClick={() => fileRef.current?.click()}>
           Use a boundary file
+        </button>
+        <button
+          type="button"
+          className="btn-link"
+          onClick={() =>
+            fetch(`${import.meta.env.BASE_URL}examples/story-county-fields.geojson`)
+              .then((r) => r.text())
+              .then((t) => readFile({ name: 'Two fields near Ames', text: async () => t }))
+              .catch(() => setFileError("Couldn't load the sample fields."))
+          }
+        >
+          Try two sample fields
         </button>
         <input
           ref={fileRef}

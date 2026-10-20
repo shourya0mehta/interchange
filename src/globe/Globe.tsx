@@ -155,6 +155,9 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const props = useRef({ focus, emphasis, swathKm, onHover, onPick });
   const scheduleRef = useRef<(() => void) | null>(null);
+  /** Emphasis fades between topics instead of switching. */
+  const fade = useRef({ from: emphasis, to: emphasis, t0: 0 });
+  if (fade.current.to !== emphasis) fade.current = { from: fade.current.to, to: emphasis, t0: performance.now() };
   props.current = { focus, emphasis, swathKm, onHover, onPick };
   const view = useRef({ lon: -40, lat: 18, zoom: 1, vLon: 0, vLat: 0, dragging: false, target: null as null | { lon: number; lat: number; zoom: number; t0: number; from: { lon: number; lat: number; zoom: number } } });
 
@@ -305,7 +308,10 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
       const axisB: [number, number, number] = [pole[1] * axisA[2] - pole[2] * axisA[1], pole[2] * axisA[0] - pole[0] * axisA[2], pole[0] * axisA[1] - pole[1] * axisA[0]];
       const half = (p.swathKm / 2 / EARTH_KM) * Math.max(1, 3 / v.zoom);
       const trail = 1.1;
-      const emph = EMPHASIS_GROUPS[p.emphasis];
+      const f = fade.current;
+      const fk = reduced ? 1 : Math.min(1, (now - f.t0) / 500);
+      const fromG = EMPHASIS_GROUPS[f.from];
+      const toG = EMPHASIS_GROUPS[f.to];
       const box = p.focus?.bbox;
 
       const cols = Math.ceil(w / cw);
@@ -350,7 +356,9 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
           }
           const inBox = box && latD >= box[1] && latD <= box[3] && lonD >= box[0] && lonD <= box[2];
           let alpha = 0.32 + 0.68 * Math.pow(g.light, 0.6);
-          if (emph && !emph.includes(s.group)) alpha *= 0.5;
+          const dimFrom = fromG && !fromG.includes(s.group) ? 0.5 : 1;
+          const dimTo = toG && !toG.includes(s.group) ? 0.5 : 1;
+          alpha *= dimFrom + (dimTo - dimFrom) * fk;
           let bold = false;
           if (fresh > 0) {
             alpha = Math.min(1, alpha + 0.5 * fresh);

@@ -4,6 +4,7 @@ import { creditLine } from '../compiler/credit';
 import type { AppSpec } from '../compiler/spec';
 import { METHOD_BY_ID, SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
 import { lonLatToMerc, makeGrid } from '../runtime/geo';
+import { shapeMask } from '../runtime/shape';
 import { LANDCOVER_CLASSES } from '../runtime/colormap';
 import { formatValue, rampColorAt } from '../runtime/colormap';
 import { differenceLayer, evaluateLayer, type LayerResult, type TimeWindow } from '../runtime/layers';
@@ -123,11 +124,24 @@ export function AppRuntime({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needed.map(keyOf).join('|'), recipe, grid, attempt]);
 
-  const current = layers[keyOf(needed[needed.length - 1])];
-  const before = swipe ? layers[keyOf(spec.windows[0])] : undefined;
+  // An uploaded boundary masks everything outside it, so the map and its totals cover just that.
+  const mask = useMemo(() => (spec.aoi.shape?.length ? shapeMask(grid, spec.aoi.shape) : null), [grid, spec.aoi.shape]);
+  const maskedCache = useRef(new WeakMap<LayerResult, LayerResult>());
+  const masked = (r: LayerResult | undefined): LayerResult | undefined => {
+    if (!r || !mask || mask.length !== r.values.length) return r;
+    let m = maskedCache.current.get(r);
+    if (!m) {
+      const cut = (a: Float32Array) => a.map((v, i) => (mask[i] ? v : NaN));
+      m = { ...r, values: cut(r.values), rgb: r.rgb ? [cut(r.rgb[0]), cut(r.rgb[1]), cut(r.rgb[2])] : undefined };
+      maskedCache.current.set(r, m);
+    }
+    return m;
+  };
+  const current = masked(layers[keyOf(needed[needed.length - 1])]);
+  const before = swipe ? masked(layers[keyOf(spec.windows[0])]) : undefined;
   const changeValues = useMemo(() => (change && before && current ? differenceLayer(before, current) : undefined), [change, before, current]);
   // Every window shares one color range, so the swipe and the slider compare like with like.
-  const domain = useMemo(() => sharedDomain(Object.values(layers)), [layers]);
+  const domain = useMemo(() => sharedDomain(Object.values(layers).map((r) => masked(r)!)), [layers, mask]);
   const urlFor = (r: LayerResult | undefined, cv?: Float32Array) => (r ? toDataUrl(layerRgba(r, cv, domain), r.grid) : null);
   const url = useMemo(() => urlFor(current, changeValues), [current, changeValues, domain]);
   const beforeUrl = useMemo(() => (swipe && !change ? urlFor(before) : undefined), [swipe, change, before, domain]);
@@ -211,7 +225,7 @@ export function AppRuntime({
       exportGif:
         spec.windows.length > 1 && STATION_BY_ID[spec.station].temporal !== 'static'
           ? async (onFrame) => {
-              const results = await Promise.all(spec.windows.map((w) => layers[keyOf(w)] ?? pending.current.get(keyOf(w)) ?? evaluateLayer(recipe, grid, w)));
+              const results = (await Promise.all(spec.windows.map((w) => layers[keyOf(w)] ?? pending.current.get(keyOf(w)) ?? evaluateLayer(recipe, grid, w)))).map((r) => masked(r)!);
               const dom = sharedDomain(results);
               const base = await captureBaseRef.current?.();
               if (!base) throw new Error('The map is still loading');
@@ -257,6 +271,7 @@ export function AppRuntime({
       clickable={chartable}
       captureRef={captureRef}
       captureBaseRef={captureBaseRef}
+      shape={spec.aoi.shape}
       onHover={(h) => setHoverAt(h ? { lonLat: h.lonLat, side: h.side } : null)}
       probe={probe}
     />
@@ -506,6 +521,20 @@ export function AppRuntime({
                   }}
                 >
                   Image of this map (PNG)
+                </button>
+              )}
+              {stats && stats.kind === 'classes' && (
+                <button
+                  className="btn"
+                  onClick={() =>
+                    download(
+                      `${spec.aoi.name.replace(/\W+/g, '-').toLowerCase()}-area-totals.csv`,
+                      ['class,share_percent,area_km2', ...stats.rows.map((r) => `"${r.entry.label}",${(r.share * 100).toFixed(1)},${r.km2.toFixed(2)}`)].join('\n'),
+                      'text/csv',
+                    )
+                  }
+                >
+                  CSV of the area totals
                 </button>
               )}
               {series && series.points.length > 0 && point && (

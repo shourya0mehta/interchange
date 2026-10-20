@@ -87,3 +87,12 @@ The studio lists maps built in this browser (localStorage, eight at most, cleara
 
 ## Seasons turn around south of the tropics
 For places centered south of 15°S, season windows are re-read: "summer 2016" on the Great Barrier Reef is December 2015 to February 2016, and "winter 2023" in the Southern Alps is June to August 2023. Month and event windows are left alone.
+
+## Named events carry their day, and floods take the first look after
+Harvey only had a month, so its "after" window ran August 1 to 21 and the newsroom map showed the August 18 radar pass, a week before landfall. Each named storm and fire now carries the day it hit the place it's known for (Harvey: August 27, 2017 in Houston). "Before" is the 75 days up to that day. "After" a flood is the two weeks from that day, earliest pass first, because water drains (Harvey: August 29). "After" a fire is the 60 days from that day, clearest first. Tags read "Before Harvey" and "After the Camp Fire". When only a month is known, "after" is the whole month, newest first.
+
+## Radar shows water in blue, and its change is its own ramp
+Open water sends the radar echo away, so it reads below about -17 dB. The radar ramp breaks there: blue under it, greys over it. The change map (after minus before) had borrowed the greenness ramp, plus or minus 0.4, which saturated on radar's plus or minus 10 dB. It now has a dB ramp where darkening, the sign of new water, is a strong blue and brightening is a pale tan. Flooded streets often brighten instead (the echo bounces off water and walls), so the Harvey notes say the city center is undercounted.
+
+## The view you publish is the view you see
+A before and after that can be differenced has two views: both dates (the swipe) and the change. The one on screen in the studio goes into the link (`view: 'change'`), and "show only the change" or "show both dates" switches it as a follow-up. The Harvey example opens on the change, since that's where the story is.

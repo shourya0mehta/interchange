@@ -32,11 +32,11 @@ sentence ─▶ intent ─▶ place ─▶ candidate routes ─▶ type check �
    └──────────── follow-up request: only what it mentions changes ◀───────────────┘
 ```
 
-1. **Read the question, and say what was heard.** A rule-based reader pulls out the theme, the place, the dates and the app shape. It doesn't depend on capital letters: a vocabulary of non-place words, a gazetteer of oceans, seas and big regions, coordinates in several notations ("lat 36.7 lon -119.8"), named disasters ("hurricane harvey" brings its month and city), misspellings, "right now", "in July", "hotter than", "shrinking". The sign under the question reads it back as you type, letter by letter like a departure board, and the globe turns to the place. With an Anthropic API key, Claude Haiku reads the question instead.
+1. **Read the question, and say what was heard.** A rule-based reader pulls out the theme, the place, the dates and the app shape. It doesn't depend on capital letters: a vocabulary of non-place words, a gazetteer of oceans, seas and big regions, coordinates in several notations ("lat 36.7 lon -119.8"), named disasters ("hurricane harvey" brings its city and the day it hit, so "after" is the first radar pass once the water rose), misspellings, "right now", "in July", "hotter than", "shrinking". The sign under the question reads it back as you type, letter by letter like a departure board, and the globe turns to the place. With an Anthropic API key, Claude Haiku reads the question instead.
 2. **Plan routes.** Each theme has candidate datasets in order of fit. The planner fits the dates to each dataset's record (Sentinel-2 can't see 2010, so the route transfers to Landsat), ranks by how much of the place and the dates each covers, and keeps the others as "other ways to build it".
 3. **Type-check and compile.** A route is a typed program; a swipe needs exactly two windows, a history chart needs a dataset that changes over time. The route becomes an `AppSpec` small enough to live in the URL.
 4. **Run.** The runtime searches STAC catalogs (Earth Search, Planetary Computer), reads only the COG windows it needs at an overview matched to the screen, masks clouds with each scene's own classification, blends up to three clear days, computes the index, reprojects into a Web Mercator grid and draws it under MapLibre's labels. New pixels arrive under a scan line, and a probe under the cursor reads out the value there.
-5. **Refine.** A follow-up request changes only what it mentions (dates, place, dataset, view or zoom) and rebuilds.
+5. **Refine.** A follow-up request changes only what it mentions (dates, place, dataset, view or zoom) and rebuilds. A before and after can also show just the change ("show only the change"): new water in radar, burn scars in NBR, greening and browning in NDVI.
 6. **Publish.** A link, an embed (`#embed=`), a PNG drawn from the map canvases with title, dates, legend and credit line, an animated GIF with one frame per date, an Earth Engine script, or a journey (`#journey=`) of several maps with captions.
 7. **Your own boundary.** Upload a GeoJSON or KML field or district, and the map, its area totals and its GIF are masked to it.
 
@@ -48,7 +48,7 @@ Fifteen datasets run live in the browser:
 | --- | --- | --- | --- |
 | Sentinel-2 L2A | Earth Search | true color, NDVI, NDWI, MNDWI, NBR, NDSI, NDMI, NDBI | 3,000 km² |
 | Landsat 5, 8, 9 Collection 2 L2 (Tier 1) | Planetary Computer | same as Sentinel-2, back to 1984 | 6,000 km² |
-| Sentinel-1 RTC | Planetary Computer | radar backscatter (floods through clouds) | 3,000 km² |
+| Sentinel-1 RTC | Planetary Computer | radar backscatter, open water in blue, and its change (floods through clouds) | 3,000 km² |
 | MODIS 16-day NDVI | Planetary Computer | greenness since 2000 | 400,000 km² |
 | MODIS land surface temperature (MOD11A2) | Planetary Computer | daytime ground temperature since 2000 | 1,000,000 km² |
 | MODIS snow cover (MOD10A2) | Planetary Computer | share of weeks with snow on the ground | 250,000 km² |

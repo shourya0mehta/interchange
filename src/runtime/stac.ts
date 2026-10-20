@@ -34,7 +34,7 @@ export interface SearchOptions {
   start: string;
   end: string;
   maxCloud?: number;
-  sort?: 'cloud' | 'date';
+  sort?: 'cloud' | 'date' | 'newest';
   limit?: number;
   /** Extra STAC query-extension filters. */
   query?: Record<string, unknown>;
@@ -115,6 +115,7 @@ export async function searchItems(o: SearchOptions): Promise<StacItem[]> {
   if (Object.keys(query).length) body.query = query;
   if (o.sort === 'cloud') body.sortby = [{ field: 'properties.eo:cloud_cover', direction: 'asc' }];
   if (o.sort === 'date') body.sortby = [{ field: 'properties.datetime', direction: 'asc' }];
+  if (o.sort === 'newest') body.sortby = [{ field: 'properties.datetime', direction: 'desc' }];
 
   const out: StacItem[] = [];
   let url = `${STAC_ENDPOINTS[o.catalog]}/search`;

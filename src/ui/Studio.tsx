@@ -21,6 +21,7 @@ import { stationColor } from './colors';
 import { shortName } from './NetworkMap';
 import { whenWords } from './readback';
 import { KeyForm, CopyButton, loadKey, saveKey } from './keys';
+import { daysAgo, latestLook } from '../runtime/latest';
 
 /** What one build looked like, so any earlier version can be brought back. */
 interface Version {
@@ -584,6 +585,7 @@ function BuiltTurn({
           </li>
         ))}
       </ol>
+      {isCurrent && turn.live && <LatestLook station={route.station} place={version.place} />}
       {turn.warnings.map((w) => (
         <p className="build-warning" key={w}>
           {w}
@@ -631,5 +633,27 @@ function BuiltTurn({
         </div>
       )}
     </div>
+  );
+}
+
+/** "Sentinel-2 last looked here 4 days ago": a real, current fact about the place. */
+function LatestLook({ station, place }: { station: string; place: Place }) {
+  const [date, setDate] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    latestLook(station, place.bbox).then((d) => alive && setDate(d));
+    return () => {
+      alive = false;
+    };
+  }, [station, place.bbox]);
+  if (!date) return null;
+  const n = daysAgo(date);
+  const when = n === 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`;
+  const pretty = new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  return (
+    <p className="latest-look">
+      <span className="latest-dot" aria-hidden="true" />
+      {shortName(STATION_BY_ID[station])} last looked here {when}, on {pretty}.
+    </p>
   );
 }

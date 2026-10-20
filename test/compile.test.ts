@@ -16,6 +16,7 @@ const goals = [
   'Elevation of Tompkins County',
   'Air quality in Tompkins County',
   'Snow in Tompkins County this winter',
+  'Map flooding in Houston before and after Hurricane Harvey',
 ];
 
 describe('Earth Engine export', () => {
@@ -30,6 +31,8 @@ describe('Earth Engine export', () => {
         if (st === 'landsat') expect(code).toContain('LANDSAT/LC09/C02/T1_L2');
         if (r.views.includes('swipe')) expect(code).toContain('ui.SplitPanel');
         if (r.views.includes('click-chart') && st !== 'io-lulc') expect(code).toContain('ui.Chart.image.series');
+        // The first radar pass after a storm, not a median over the two weeks the water drained.
+        if (st === 'sentinel-1' && /Harvey/.test(g)) expect(code).toContain('"prefer":"earliest"');
       }
     });
   }

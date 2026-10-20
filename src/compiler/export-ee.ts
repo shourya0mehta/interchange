@@ -61,7 +61,7 @@ export function earthEngineScript(route: Route): string {
     '// Built with Interchange. Paste into code.earthengine.google.com, press Run,',
     '// then Apps > New App to publish it with your own Earth Engine project.',
     `var aoi = ee.Geometry.Rectangle([${[w, s, e, n].map((v) => v.toFixed(5)).join(', ')}]);`,
-    `var windows = ${js(windows.map((x: TimeWindow) => ({ label: x.label, start: x.start, end: x.end })))};`,
+    `var windows = ${js(windows.map((x: TimeWindow) => ({ label: x.label, start: x.start, end: x.end, ...(x.prefer ? { prefer: x.prefer } : {}) })))};`,
     '',
   );
 
@@ -128,7 +128,17 @@ export function earthEngineScript(route: Route): string {
       '}',
     );
     visBlock = `var vis = { min: -25, max: 0, palette: ${js(palette('radar-vv'))} };`;
-    makeLayer = 'function layerFor(w) { return scenes(w.start, w.end).median().clip(aoi); }';
+    // "After" a flood is the first day of passes in the window, before the water drains.
+    makeLayer = [
+      'function layerFor(w) {',
+      '  var c = scenes(w.start, w.end);',
+      "  if (w.prefer === 'earliest') {",
+      "    var first = ee.Date(c.sort('system:time_start').first().get('system:time_start'));",
+      "    c = c.filterDate(first, first.advance(1, 'day'));",
+      '  }',
+      '  return c.median().clip(aoi);',
+      '}',
+    ].join('\n');
     seriesFn = 'function series(start, end) { return scenes(start, end); }';
   } else {
     const live = LIVE_EE[st.id];

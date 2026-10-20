@@ -6,6 +6,7 @@ import '@fontsource/overpass-mono/400.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
 import './landing.css';
+import { GlobeLab } from './globe/GlobeLab';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeSpec } from './compiler/spec';
@@ -20,12 +21,14 @@ setUrlSigner(signPlanetaryComputer);
 
 type Screen =
   | { kind: 'landing' }
+  | { kind: 'lab' }
   | { kind: 'app'; token: string }
   | { kind: 'build'; fork: string | null; q: string | null; station: string | null };
 
 /** Hash routes, so the static site needs no server rewrites: #app=, #fork=, #build?q=, or the landing page. */
 function readHash(): Screen {
   const h = location.hash.slice(1);
+  if (h === 'lab-globe') return { kind: 'lab' };
   if (h.startsWith('app=')) return { kind: 'app', token: h.slice(4) };
   if (h.startsWith('fork=')) return { kind: 'build', fork: h.slice(5), q: null, station: null };
   if (h === 'build' || h.startsWith('build?') || h.startsWith('build/')) {
@@ -71,7 +74,8 @@ function Root() {
   }, []);
   const key = screen.kind === 'app' ? `app|${screen.token}` : screen.kind === 'build' ? `build|${screen.fork}|${screen.q}|${screen.station}` : 'landing';
   let body;
-  if (screen.kind === 'app') body = <Published token={screen.token} />;
+  if (screen.kind === 'lab') body = <GlobeLab />;
+  else if (screen.kind === 'app') body = <Published token={screen.token} />;
   else if (screen.kind === 'build') {
     document.title = 'Interchange builder';
     body = <Builder forkToken={screen.fork} initialGoal={screen.q} initialStation={screen.station} />;

@@ -84,7 +84,7 @@ export interface Intent {
 const TEMP = String.raw`(?:temp(?:s|erature?s?)?|tem\w{0,4}ture?s?|tmp)`;
 const CROPS = String.raw`(?:corn|maize|soy(?:beans?)?|wheat|cotton|rice|sorghum|alfalfa|almonds?|pistachios?|walnuts?|orchards?|vineyards?|grapes|potatoes|sugar ?beets|peanuts|canola|barley|oats|citrus|cranberr(?:y|ies)|blueberr(?:y|ies)|hay)`;
 
-const THEME_CUES: [Theme, RegExp][] = [
+export const THEME_CUES: [Theme, RegExp][] = [
   ['cover-crop', /\bcover[- ]?crops?\b|\bbare (soil|fields?)\b|\bstayed bare\b|\bwinter (cover|rye)\b/i],
   ['crop-type', new RegExp(String.raw`\b(what|which) (kinds? of |types? of )?crops?\b|\bcrop (types?|maps?|mix|rotations?|classes)\b|\btypes? of crops?\b|\bwhat(?: is|'s| was| gets?| got| are) (grown|planted|farmed)\b|\b(grown|planted|farmed) (in|around|near|across)\b|\bwhere .*\b(grown|planted)\b|\b${CROPS}\b(?! belt)`, 'i')],
   // "How much forest did Brazil lose": loss, not a share.
@@ -112,7 +112,7 @@ const THEME_CUES: [Theme, RegExp][] = [
   ['vegetation', /\bgree\w*n\w*|\bgreen\w*|\bvegetation\b|\bndvi\b|\bcrops?\b|\bfarm\w*|\bfields?\b|\bforests?\b|\btrees?\b|\bplants?\b|\bharvest\w*|\bpastures?\b|\bgrass\w*|\bparks?\b/i],
 ];
 
-const STATION_CUES: [string, RegExp][] = [
+export const STATION_CUES: [string, RegExp][] = [
   ['sentinel-2', /\bsentinel[- ]?2\b|\bs2\b/i],
   ['sentinel-1', /\bsentinel[- ]?1\b|\bs1\b|\bradar\b|\bsar\b/i],
   ['landsat', /\blandsat\b/i],
@@ -130,7 +130,7 @@ const STATION_CUES: [string, RegExp][] = [
 
 // ---- Views ---------------------------------------------------------------------------
 
-const VIEW_CUES: [ComponentId, RegExp][] = [
+export const VIEW_CUES: [ComponentId, RegExp][] = [
   ['swipe', /\bbefore and after\b|\bbefore\/after\b|\bcompare\b|\bcompared\b|\bvs\.?\b|\bversus\b|\bswipe\b|\bside by side\b|\bhow (much )?(has|have|did) .* change|\b(shrink(s|ing)?|shrunk(en)?|shrank|retreat(s|ing|ed)?|disappear(s|ing|ed)?|dr(ying|ied) up|recover(ed|ing|y)?|regrow\w*|expand(s|ing|ed)?)\b|\bgrowing\b(?! season)|\b(hotter|colder|warmer|cooler|wetter|drier|greener|browner|bigger|smaller|worse|better) than\b/i],
   ['time-slider', /\beach year\b|\bevery year\b|\b(?:each|every) (?:spring|summer|fall|autumn|winter|season|growing season)\b|\byear by year\b|\bmonth by month\b|\bslider\b|\banimat\w*|\bstep through\b|\bper year\b|\byearly\b|\bover the years\b/i],
   ['click-chart', /\bclick\b|\bhistory\b|\bover time\b|\btime ?series\b|\btrends?\b|\bchart\b|\bthrough the (year|season)\b/i],
@@ -391,6 +391,8 @@ const NOT_PLACE = new Set(
   difference differences different same similar compare-to whole entire overall full part parts half
   hi hey hello thanks thank cool okay ok yeah yes no not don't dont doesn't didn't isn't wasn't
   right moment lose loses losing gets getting got become became snowing raining pouring freezing
+  zoom zoomed switch swap instead use using try add adding remove drop keep move pan center centre focus turn put set rather plus
+  wider narrower bigger smaller closer further farther older newer earlier later back forward edit tweak redo
   lst lat lon lng long latitude longitude coordinates coords
   underwater flooded-out submerged
   warmed cooled dried dry rose risen fell fallen dropped spread spreading covers covered covering affected moved

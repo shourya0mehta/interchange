@@ -993,6 +993,8 @@ a.brand {
   .maplibregl-ctrl-attrib-button {
     width: 44px !important;
     height: 44px !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
   }
   .maplibregl-ctrl-attrib a {
     display: inline-block;

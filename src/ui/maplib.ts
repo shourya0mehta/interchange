@@ -20,6 +20,11 @@ export function createMap(container: HTMLElement, bbox: Bbox, opts: { interactiv
     cooperativeGestures: opts.cooperative ?? false,
   });
   if (opts.interactive ?? true) map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+  // MapLibre opens the credits on load; on a phone-width map that covers a third of it. Start
+  // folded there: the (i) button is one tap away.
+  map.once('load', () => {
+    if (container.clientWidth < 640) container.querySelector('.maplibregl-compact-show')?.classList.remove('maplibregl-compact-show');
+  });
   return map;
 }
 

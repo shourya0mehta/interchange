@@ -13,7 +13,7 @@ export interface Ramp {
   /** Values at or below this are drawn transparent. */
   transparentBelow?: number;
   /** How legend and chart numbers read: plain, a share shown as a percent, °C or mm. */
-  format?: 'percent' | 'celsius' | 'mm';
+  format?: 'percent' | 'celsius' | 'mm' | 'db';
   /**
    * Stretch the colors over what the map actually holds (2nd to 98th percentile), never
    * narrower than this span. A Gulf summer at 28 to 31 °C would otherwise be one shade of red.
@@ -31,6 +31,8 @@ export function formatValue(ramp: Pick<Ramp, 'format'>, v: number): string {
       return `${Math.abs(v) < 10 && v % 1 !== 0 ? v.toFixed(1) : Math.round(v)} °C`;
     case 'mm':
       return `${Math.round(v).toLocaleString('en-US')} mm`;
+    case 'db':
+      return `${Math.abs(v) < 3 && v % 1 !== 0 ? v.toFixed(1) : Math.round(v)} dB`;
     default:
       return Math.abs(v) >= 20 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2);
   }
@@ -170,9 +172,10 @@ const BASE_RAMPS = {
       { at: 0.7, color: '#b9bec4' },
       { at: 1, color: '#fbfaf6' },
     ],
-    units: 'dB',
+    units: 'Radar echo',
     low: 'smooth (water)',
     high: 'rough',
+    format: 'db',
   },
 } satisfies Record<string, Ramp>;
 
@@ -275,9 +278,10 @@ export const RADAR_CHANGE_RAMP: Ramp = {
     { at: 0.66, color: '#e6e3de' },
     { at: 1, color: '#b39878' },
   ],
-  units: 'Change in radar echo, dB',
+  units: 'Change in radar echo',
   low: 'darker: likely new water',
   high: 'brighter',
+  format: 'db',
 };
 
 export const LANDCOVER_CLASSES: Record<string, ClassEntry[]> = {

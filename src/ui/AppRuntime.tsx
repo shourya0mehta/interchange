@@ -182,7 +182,7 @@ export function AppRuntime({
   const statRamp = changeValues && current ? changeRamp(current) : ramp;
   const fmt = (v: number) => formatValue(statRamp ?? {}, v);
   const sigName = SIGNAL_NAMES[spec.signal]?.short ?? spec.signal;
-  const windowLabel = swipe ? `${spec.windows[0].label} and ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label;
+  const windowLabel = change ? `Change from ${spec.windows[0].label} to ${spec.windows[1].label}` : swipe ? `${spec.windows[0].label} and ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label;
   const captureRef = useRef<(() => Promise<HTMLCanvasElement[]>) | null>(null);
   const captureBaseRef = useRef<(() => Promise<{ canvas: HTMLCanvasElement; rect: { x: number; y: number; w: number; h: number } } | null>) | null>(null);
   const [hoverAt, setHoverAt] = useState<{ lonLat: [number, number]; side: 'before' | 'after' } | null>(null);
@@ -306,8 +306,12 @@ export function AppRuntime({
             <>
               <div className="legend-ramp" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 11 }, (_, i) => rampColorAt(legend.ramp, i / 10)).join(', ')})` }} />
               <div className="legend-ends">
-                <span>{formatValue(legend.ramp, legend.ramp.domain[0])}</span>
-                <span>{formatValue(legend.ramp, legend.ramp.domain[1])}</span>
+                <span>
+                  {formatValue(legend.ramp, legend.ramp.domain[0])} {legend.ramp.low}
+                </span>
+                <span>
+                  {legend.ramp.high} {formatValue(legend.ramp, legend.ramp.domain[1])}
+                </span>
               </div>
             </>
           )}

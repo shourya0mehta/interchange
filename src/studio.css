@@ -1376,3 +1376,47 @@ a.btn {
   background: var(--fog);
   animation-duration: 640ms;
 }
+
+/* Readers of an embed can flip between both dates and the change. */
+.embed-card .toggle-small {
+  margin: 2px 0 10px;
+}
+.embed-card .toggle-small button {
+  min-height: 30px;
+  padding: 4px 10px;
+}
+@media (pointer: coarse) {
+  .embed-card .toggle-small button {
+    min-height: 44px;
+  }
+}
+
+/* An embed (or a journey's sticky map) fills its frame at every width; the phone rule that
+   gives an app's map 60% of the screen is for the app page, not for an iframe. */
+.embed .map-wrap .map-wrap,
+.embed > .map-wrap > .map-wrap {
+  height: 100%;
+}
+
+/* In a short frame (a phone journey, a slim iframe) the card keeps to the title and the legend,
+   so the map stays the thing you see. */
+.embed {
+  container-type: size;
+  container-name: embed;
+}
+@container embed (max-height: 440px) {
+  .embed-card {
+    bottom: 36px;
+    padding: 8px 10px;
+  }
+  .embed-card .embed-title {
+    font-size: 15px;
+  }
+  .embed-card .embed-when {
+    margin-bottom: 4px;
+  }
+  .embed-card .toggle-small,
+  .embed-card .app-notes {
+    display: none;
+  }
+}

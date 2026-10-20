@@ -293,6 +293,16 @@ export function AppRuntime({
         <div className="embed-card">
           <h1 className="embed-title">{spec.title}</h1>
           <p className="embed-when">{windowLabel}</p>
+          {canChange && (
+            <div className="toggle toggle-small" role="group" aria-label="Show both dates or the change">
+              <button aria-pressed={!change} onClick={() => setChange(false)}>
+                Both dates
+              </button>
+              <button aria-pressed={change} onClick={() => setChange(true)}>
+                Change
+              </button>
+            </div>
+          )}
           {slider && (
             <input
               type="range"

@@ -996,6 +996,15 @@ a.brand {
     background-repeat: no-repeat !important;
     background-position: center !important;
   }
+  /* The folded credits are a 44 px circle around their (i), not a small one beside it. */
+  .maplibregl-ctrl-attrib.maplibregl-compact {
+    min-height: 44px;
+    min-width: 44px;
+    border-radius: 22px;
+  }
+  .maplibregl-ctrl-attrib.maplibregl-compact-show {
+    padding: 2px 48px 2px 12px;
+  }
   .maplibregl-ctrl-attrib a {
     display: inline-block;
     padding: 12px 2px;

@@ -106,9 +106,11 @@ function stepsFor(intent: Intent, place: Place, route: Route): Step[] {
 }
 
 /** Next things people usually ask for, given what's on screen. */
-function suggestions(intent: Intent, route: Route | undefined, routes: Route[]): string[] {
+function suggestions(intent: Intent, route: Route | undefined, routes: Route[], spec?: AppSpec | null): string[] {
   if (!route) return [];
   const out: string[] = [];
+  // A before and after that can be differenced: offer the change first, it's usually the story.
+  if (spec && spec.methods.includes('difference') && spec.windows.length === 2) out.push(spec.view === 'change' ? 'Show both dates' : 'Show only the change');
   const t = intent.time;
   const y0 = Number((t.kind === 'snapshot' ? t.window.start : t.kind === 'history' ? t.range.start : t.windows[0].start).slice(0, 4));
   const y1 = Number((t.kind === 'snapshot' ? t.window.start : t.kind === 'history' ? t.range.end : t.windows[t.windows.length - 1].start).slice(0, 4));
@@ -237,6 +239,17 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
     setDraft('');
     push({ who: 'you', text: t });
     try {
+      // "Show only the change" and "show both dates" switch the view in place; nothing to rebuild.
+      const s = v.spec;
+      if (s && s.methods.includes('difference') && s.windows.length === 2) {
+        const toChange = /^(please )?((show|see|map|display)( me)?( only| just)? (the )?(change|difference)( map| only)?|(just|only) the (change|difference)|(the )?change map|(show( me)? )?what changed)\b/i.test(t);
+        const toBoth = /\b(both dates|side by side|before and after|swipe)\b/i.test(t) && s.view === 'change' && !/\b(19|20)\d\d\b/.test(t);
+        if (toChange || toBoth) {
+          patchSpec({ ...s, view: toChange ? 'change' : undefined });
+          push({ who: 'ic', kind: 'note', text: toChange ? `Showing the change: ${s.windows[1].label} minus ${s.windows[0].label}. The link and embed open this way too.` : 'Showing both dates with the swipe.' });
+          return;
+        }
+      }
       const r = refine(v.intent, t);
       let place: Place | null = v.place;
       if (r.newPlace) {
@@ -319,7 +332,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const tips = useMemo(() => (v ? suggestions(v.intent, route, v.routes) : []), [v, route]);
+  const tips = useMemo(() => (v ? suggestions(v.intent, route, v.routes, v.spec) : []), [v, route]);
   const [recent, setRecent] = useState(loadRecent);
   useSlashFocus(['follow-input', 'goal']);
   // Remember each map that builds, so it can be reopened from the start screen later.

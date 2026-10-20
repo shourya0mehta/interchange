@@ -60,6 +60,8 @@ export function AppRuntime({
   const corners = useMemo(() => gridCorners(grid), [grid]);
   const [winIdx, setWinIdx] = useState(spec.windows.length - 1);
   const [change, setChangeState] = useState(spec.view === 'change' && canChange);
+  // A follow-up in the studio ("show only the change") switches the view from outside.
+  useEffect(() => setChangeState(spec.view === 'change' && canChange), [spec.view, canChange]);
   // In the studio, the view on screen is the view that gets published.
   const setChange = (v: boolean) => {
     setChangeState(v);

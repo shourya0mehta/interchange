@@ -50,7 +50,7 @@ const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; p
     id: 'newsroom',
     who: 'Newsrooms',
     job: 'A satellite map for today’s story, without a GIS desk.',
-    gets: ['An embed for the article, sized for phones', 'The credit line in each provider’s own wording', 'A methods note you can paste under the map', 'A 16:9 or square image for social'],
+    gets: ['An embed sized for phones; readers flip between both dates and the change', 'The credit line in each provider’s own wording', 'A methods note you can paste under the map', 'A 16:9 or square image for social'],
     q: 'Map flooding in Houston before and after Hurricane Harvey',
     place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] },
     shot: 'use-newsroom.jpg',

@@ -5,7 +5,7 @@ import { makeGrid } from '../runtime/geo';
 import { formatValue, rampColorAt } from '../runtime/colormap';
 import { differenceLayer, evaluateLayer, type LayerResult, type TimeWindow } from '../runtime/layers';
 import { pointSeries, type SeriesResult } from '../runtime/series';
-import { changeRamp, gridCorners, layerRgba, legendFor, pixelSizeLabel, presentClasses, rampFor, regionStats, toDataUrl } from '../runtime/render';
+import { changeRamp, gridCorners, layerRgba, legendFor, pixelSizeLabel, presentClasses, rampFor, regionStats, sharedDomain, toDataUrl } from '../runtime/render';
 import { download, layerGeoTiff, seriesCsv } from '../runtime/export';
 import { INDICES } from '../runtime/indices';
 import { HistoryChart } from './Chart';
@@ -108,16 +108,18 @@ export function AppRuntime({
   const current = layers[keyOf(needed[needed.length - 1])];
   const before = swipe ? layers[keyOf(spec.windows[0])] : undefined;
   const changeValues = useMemo(() => (change && before && current ? differenceLayer(before, current) : undefined), [change, before, current]);
-  const urlFor = (r: LayerResult | undefined, cv?: Float32Array) => (r ? toDataUrl(layerRgba(r, cv), r.grid) : null);
-  const url = useMemo(() => urlFor(current, changeValues), [current, changeValues]);
-  const beforeUrl = useMemo(() => (swipe && !change ? urlFor(before) : undefined), [swipe, change, before]);
+  // Every window shares one color range, so the swipe and the slider compare like with like.
+  const domain = useMemo(() => sharedDomain(Object.values(layers)), [layers]);
+  const urlFor = (r: LayerResult | undefined, cv?: Float32Array) => (r ? toDataUrl(layerRgba(r, cv, domain), r.grid) : null);
+  const url = useMemo(() => urlFor(current, changeValues), [current, changeValues, domain]);
+  const beforeUrl = useMemo(() => (swipe && !change ? urlFor(before) : undefined), [swipe, change, before, domain]);
   const legend = useMemo(() => {
-    const l = current ? legendFor(current, !!changeValues) : null;
+    const l = current ? legendFor(current, !!changeValues, domain) : null;
     if (!l || l.kind !== 'classes' || !current) return l;
     // Only list classes that actually appear on this map, most common first.
     const { shown, more } = presentClasses(current);
     return { ...l, classes: shown, more };
-  }, [current, changeValues]);
+  }, [current, changeValues, domain]);
   const stats = useMemo(() => (current && has('region-stats') ? regionStats(changeValues ? { ...current, values: changeValues } : current) : null), [current, changeValues]);
 
   const runSeries = (pt: [number, number]) => {
@@ -135,7 +137,7 @@ export function AppRuntime({
       .catch((e: Error) => setSeriesStatus({ state: 'error', message: e.message }));
   };
 
-  const ramp = rampFor(spec.signal, current?.domain);
+  const ramp = rampFor(spec.signal, domain ?? current?.domain);
   const statRamp = changeValues && current ? changeRamp(current) : ramp;
   const fmt = (v: number) => formatValue(statRamp ?? {}, v);
   const sigName = SIGNAL_NAMES[spec.signal]?.short ?? spec.signal;

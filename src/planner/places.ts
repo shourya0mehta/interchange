@@ -37,20 +37,60 @@ function once(query: string, signal?: AbortSignal): Promise<Place | null> {
     .catch(() => null);
 }
 
-/** Komoot's Photon, also built on OpenStreetMap: the fallback when Nominatim is busy. */
-function photon(query: string, signal?: AbortSignal): Promise<Place | null> {
-  const url = `https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(query)}`;
+interface PhotonFeature {
+  properties: { name?: string; state?: string; country?: string; type?: string; osm_key?: string; osm_value?: string; extent?: [number, number, number, number] };
+  geometry: { coordinates: [number, number] };
+}
+
+const GOOD_KEYS: Record<string, number> = { place: 3, boundary: 2, natural: 3, water: 3, waterway: 2, leisure: 1, landuse: -4, amenity: -4, shop: -4, office: -4, building: -4, tourism: -3, aeroway: -4, highway: -4, railway: -4, historic: -2, man_made: -3, craft: -4, healthcare: -4 };
+const TYPES: Record<string, number> = { country: 6, state: 5, county: 5, city: 5, district: 3, locality: 3, other: 0, street: -3, house: -5 };
+
+/**
+ * How sure we are that a Photon hit is the place meant: areas (counties, cities, lakes, parks)
+ * whose name matches the phrase score high; a cemetery or an office that merely shares the
+ * name ("Fresno County Cemetery #1") scores below zero.
+ */
+export function photonScore(f: PhotonFeature, query: string): number {
+  const p = f.properties;
+  const name = (p.name ?? '').toLowerCase();
+  const head = query.split(',')[0].trim().toLowerCase();
+  // OSM names counties "Fresno", people write "Fresno County".
+  const core = head.replace(/\s+(county|parish|borough)\b.*$/, '');
+  let score = TYPES[p.type ?? 'other'] ?? 0;
+  score += GOOD_KEYS[p.osm_key ?? ''] ?? 0;
+  if (p.osm_key === 'leisure' && /park|nature_reserve/.test(p.osm_value ?? '')) score += 1;
+  if (p.osm_key === 'boundary' && p.osm_value === 'national_park') score += 1;
+  if (name === head || (p.type === 'county' && name === core)) score += 4;
+  else if (name.startsWith(head) || head.startsWith(name)) score += 1;
+  // "Ithaca NY", "Fresno County, California": the rest of the phrase should match the state or country.
+  const tail = query.toLowerCase().replace(head, '');
+  const region = `${p.state ?? ''} ${p.country ?? ''}`.toLowerCase();
+  if (tail.trim() && region.split(/\s+/).some((w) => w.length > 2 && tail.includes(w))) score += 1;
+  return score;
+}
+
+function photonPlace(f: PhotonFeature, query: string): Place {
+  const p = f.properties;
+  const [x, y] = f.geometry.coordinates;
+  // Photon extents are [west, north, east, south]; points without one get a ~10 km box.
+  const e = p.extent;
+  const bbox: Bbox = e ? [e[0], e[3], e[2], e[1]] : [x - 0.06, y - 0.045, x + 0.06, y + 0.045];
+  const base = p.type === 'county' && p.name && !/\b(county|parish|borough)\b/i.test(p.name) && /\bcounty\b/i.test(query) ? `${p.name} County` : p.name;
+  const name = [base, p.type === 'country' || p.type === 'state' ? null : p.state].filter(Boolean).join(', ') || query;
+  return { name, bbox };
+}
+
+/** Komoot's Photon, built on OpenStreetMap and made for search-as-you-type. */
+function photon(query: string, signal?: AbortSignal, minScore = 3): Promise<Place | null> {
+  // Counties hide behind parks and fairgrounds that share their name unless asked for by layer.
+  const layer = /\b(county|parish|borough)\b/i.test(query) ? '&layer=county' : '';
+  const url = `https://photon.komoot.io/api/?limit=8&q=${encodeURIComponent(query)}${layer}`;
   return getFetcher()(url, { signal })
     .then((r) => (r.ok ? r.json() : { features: [] }))
-    .then((j: { features: { properties: { name?: string; state?: string; extent?: [number, number, number, number] }; geometry: { coordinates: [number, number] } }[] }) => {
-      const f = j.features[0];
-      if (!f) return null;
-      const [x, y] = f.geometry.coordinates;
-      // Photon extents are [west, north, east, south]; points without one get a ~10 km box.
-      const e = f.properties.extent;
-      const bbox: Bbox = e ? [e[0], e[3], e[2], e[1]] : [x - 0.06, y - 0.045, x + 0.06, y + 0.045];
-      const name = [f.properties.name, f.properties.state].filter(Boolean).join(', ') || query;
-      return { name, bbox };
+    .then((j: { features: PhotonFeature[] }) => {
+      const ranked = j.features.map((f) => ({ f, s: photonScore(f, query) })).sort((a, b) => b.s - a.s);
+      const best = ranked[0];
+      return best && best.s >= minScore ? photonPlace(best.f, query) : null;
     })
     .catch(() => null);
 }
@@ -69,15 +109,39 @@ async function lookup(query: string, signal?: AbortSignal): Promise<Place | null
   return parts.length > 1 ? once(parts.slice(0, -1).join(','), signal) : null;
 }
 
+function localPlace(query: string): Place | null {
+  const c = coordsPlace(query);
+  if (c) return c;
+  const r = regionByName(query);
+  return r ? { name: r.name, bbox: r.bbox, note: r.note } : null;
+}
+
+const previewCache = new Map<string, Promise<Place | null>>();
+
 /**
- * OpenStreetMap Nominatim lookup: free, no key. A person typing goals stays far under its
- * one-request-a-second policy. Hits are cached for the session; misses are retried next time.
+ * While someone types: coordinates and named regions locally, everything else through Photon,
+ * accepted only when the hit is clearly the place. Nominatim's policy rules out lookups as
+ * you type, so it is only asked when a plan is made.
+ */
+export const previewGeocoder: Geocoder = (query, signal) => {
+  const fixed = localPlace(query);
+  if (fixed) return Promise.resolve(fixed);
+  const key = query.trim().toLowerCase();
+  let p = previewCache.get(key);
+  if (!p) {
+    p = photon(query, signal, 5).then((v) => (v ? { ...v, bbox: atLeast(v.bbox) } : v));
+    p.then((v) => v === null && previewCache.delete(key));
+    previewCache.set(key, p);
+  }
+  return p;
+};
+
+/**
+ * OpenStreetMap Nominatim lookup: free, no key, one request per plan. Hits are cached for the
+ * session; misses are retried next time.
  */
 export const nominatim: Geocoder = (query, signal) => {
-  const fixed = coordsPlace(query) ?? (() => {
-    const r = regionByName(query);
-    return r ? { name: r.name, bbox: r.bbox, note: r.note } : null;
-  })();
+  const fixed = localPlace(query);
   if (fixed) return Promise.resolve(fixed);
   const key = query.trim().toLowerCase();
   let p = cache.get(key);

@@ -1,0 +1,36 @@
+import { chromium } from 'playwright';
+const OUT = process.env.OUT;
+const base = 'http://localhost:4173/';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const errors = [];
+async function page(vp) {
+  const p = await browser.newPage({ viewport: vp });
+  p.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  p.on('pageerror', (e) => errors.push(String(e)));
+  return p;
+}
+const d = await page({ width: 1440, height: 900 });
+await d.goto(base);
+await d.waitForTimeout(3500);
+await d.screenshot({ path: `${OUT}/landing-hero.png` });
+await d.screenshot({ path: `${OUT}/landing-full.png`, fullPage: true });
+await d.fill('#hero-goal', 'i want sea surface temeprature, 1999-now, atlantic ocean');
+await d.waitForTimeout(1500);
+await d.screenshot({ path: `${OUT}/landing-typed.png` });
+await d.goto(base + '#build');
+await d.waitForTimeout(1500);
+await d.screenshot({ path: `${OUT}/ask-empty.png` });
+await d.fill('#goal', 'snow cover in the sierra nevada each winter since 2018');
+await d.waitForTimeout(2500);
+await d.screenshot({ path: `${OUT}/ask-typed.png` });
+const m = await page({ width: 390, height: 844 });
+await m.goto(base);
+await m.waitForTimeout(2500);
+await m.screenshot({ path: `${OUT}/m-landing.png`, fullPage: true });
+await m.goto(base + '#build');
+await m.waitForTimeout(1500);
+await m.fill('#goal', 'flooding in houston after hurricane harvey');
+await m.waitForTimeout(2500);
+await m.screenshot({ path: `${OUT}/m-ask.png`, fullPage: false });
+console.log('errors', errors.slice(0, 10));
+await browser.close();

@@ -7,7 +7,7 @@ import type { Route } from '../network/types';
 import { THEME_WORDS, parseGoal, type Intent } from '../planner/intent';
 import { parseGoalWithClaude } from '../planner/llm';
 import { geocodeFirst, nominatim } from '../planner/places';
-import { planRoutes, type PlanResult } from '../planner/plan';
+import { planRoutes, type Place, type PlanResult } from '../planner/plan';
 import { AppRuntime } from './AppRuntime';
 import { BrandMark } from './BrandMark';
 import { Dialog } from './Dialog';
@@ -17,32 +17,30 @@ import { MapKey, NetworkMap } from './NetworkMap';
 import { RouteStrip, type StopKey } from './RouteStrip';
 import { StopEditor } from './StopEditor';
 import { stationColor } from './colors';
+import { JourneyNav, type Step } from './JourneyNav';
+import { PlacePicker } from './PlacePicker';
+import { ReadBackSign } from './ReadBackSign';
+import { useLiveIntent, whenWords } from './readback';
 
-type View = 'network' | 'route' | 'app';
-type Modal = { kind: 'ee'; code: string; title: string } | { kind: 'share'; url: string } | { kind: 'key' } | null;
+type View = Step;
+type Modal = { kind: 'ee'; code: string; title: string } | { kind: 'share'; url: string } | { kind: 'key' } | { kind: 'place' } | null;
 
+/** Starting points, one per kind of question, so the first screen shows the range. */
 export const EXAMPLES = [
   'Show which fields in Tompkins County, NY had a cover crop each spring since 2018, and click a field for its history',
-  'Compare greenness in Fresno County, California in summer 2019 vs summer 2025',
+  'Compare greenness in Fresno County fields, summer 2019 vs summer 2025',
+  'sea surface temperature in the north atlantic since 1999',
+  'What crops grew around Ames, Iowa in 2021',
   'Map flooding in Houston before and after August 2017',
-  'Burn severity in Paradise, California before and after November 2018',
+  'Snow cover in the Sierra Nevada each winter since 2018',
+  'Urban heat island in Phoenix, summer 2025',
   'How much of Austin, Texas is built up?',
-  'Lake Mead water each year from 2015 to 2024',
 ];
 
 
 function readingOf(intent: Intent, plan: PlanResult): string {
-  const t = intent.time;
-  const when =
-    t.kind === 'compare'
-      ? `${t.windows[0].label} against ${t.windows[1].label}`
-      : t.kind === 'yearly'
-        ? `${t.windows[0].label} to ${t.windows[t.windows.length - 1].label}, one map per year`
-        : t.kind === 'history'
-          ? `history from ${t.range.start.slice(0, 4)}, mapped for ${t.window.label}`
-          : t.window.label;
   const where = plan.place ? ` in ${plan.place.name}` : '';
-  return `Looking for ${THEME_WORDS[intent.theme]}${where}, ${when}.`;
+  return `Looking for ${THEME_WORDS[intent.theme]}${where}, ${whenWords(intent)}.`;
 }
 
 const KEY_STORE = 'interchange.anthropicKey';
@@ -62,10 +60,12 @@ function saveKey(k: string) {
   }
 }
 
-export function Builder({ forkToken }: { forkToken: string | null }) {
-  const [view, setView] = useState<View>('network');
-  const [goal, setGoal] = useState('');
-  const [pinned, setPinned] = useState<string | null>(null);
+export function Builder({ forkToken, initialGoal, initialStation }: { forkToken: string | null; initialGoal?: string | null; initialStation?: string | null }) {
+  const [view, setView] = useState<View>('ask');
+  const [goal, setGoal] = useState(initialGoal ?? '');
+  const [pinned, setPinned] = useState<string | null>(initialStation && STATION_BY_ID[initialStation] ? initialStation : null);
+  /** A place chosen on the map, used instead of the one in the sentence. */
+  const [pinnedPlace, setPinnedPlace] = useState<Place | null>(null);
   const [plan, setPlan] = useState<PlanResult | null>(null);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [sel, setSel] = useState(0);
@@ -80,7 +80,15 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
   const [apiKey, setApiKey] = useState(loadKey);
   const [planSeq, setPlanSeq] = useState(0);
   const [modal, setModal] = useState<Modal>(null);
-  const goalRef = useRef<HTMLInputElement>(null);
+  const goalRef = useRef<HTMLTextAreaElement>(null);
+  const live = useLiveIntent(goal, pinnedPlace);
+  // A new place phrase means the map pick no longer applies.
+  const phrase = live.intent?.place ?? '';
+  const pickedFor = useRef('');
+  useEffect(() => {
+    if (pinnedPlace && phrase !== pickedFor.current) setPinnedPlace(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phrase]);
 
   // A forked app arrives as its own route, ready to edit.
   useEffect(() => {
@@ -99,10 +107,19 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
     setSel(0);
     setView('route');
     setPlanSeq((n) => n + 1);
-    history.replaceState(null, '', location.pathname + location.search);
+    history.replaceState(null, '', `${location.pathname}${location.search}#build`);
   }, [forkToken]);
 
-  const runPlan = async (text: string) => {
+  // Arriving from the landing page with a question: plan it straight away.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !initialGoal) return;
+    started.current = true;
+    runPlan(initialGoal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialGoal]);
+
+  const runPlan = async (text: string, chosenPlace: Place | null = pinnedPlace) => {
     const t = text.trim();
     if (!t) {
       goalRef.current?.focus();
@@ -123,11 +140,14 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
         }
       } else intent = parseGoal(t);
       if (pinned) intent = { ...intent, station: pinned };
-      const found = intent.place ? await geocodeFirst(nominatim, [intent.place, ...intent.places]) : null;
+      const phrases = [intent.place, ...intent.places].filter((x): x is string => !!x);
+      // The read-back already found it while typing: plan on the same place it showed.
+      const previewed = live.status.state === 'found' && t === goal.trim() ? live.status.place : null;
+      const found = chosenPlace ? { place: chosenPlace } : previewed ? { place: previewed } : phrases.length ? await geocodeFirst(nominatim, phrases) : null;
       const place = found?.place ?? null;
-      if (intent.place && !place) {
-        // Stay where we are: the network (or the last plan) keeps its place on screen.
-        setErr(`Couldn't find "${intent.place}" on the map. Check your connection and try again, or add a state or country, like "Tompkins County, NY".`);
+      if (phrases.length && !place) {
+        // Stay where we are, and offer the map: the place may just be spelled in a way the lookup doesn't know.
+        setErr(`Couldn't find "${intent.place}" on the map. Pick it on the map, or add a state or country, like "Tompkins County, NY".`);
         setRetryGoal(t);
         return;
       }
@@ -171,6 +191,9 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
       {retryGoal && (
         <>
           {' '}
+          <button className="btn-link" onClick={() => setModal({ kind: 'place' })}>
+            Pick it on the map
+          </button>{' '}
           <button className="btn-link" onClick={() => runPlan(retryGoal)} disabled={busy}>
             {busy ? 'Trying again' : 'Try again'}
           </button>
@@ -178,17 +201,6 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
       )}
     </div>
   );
-
-  const tab = (v: View, label: string, enabled: boolean) =>
-    view === v ? (
-      <span className="nav-tab" aria-current="page">
-        {label}
-      </span>
-    ) : (
-      <button className="nav-tab" onClick={() => setView(v)} disabled={!enabled}>
-        {label}
-      </button>
-    );
 
   const publish = async () => {
     if (!spec) return;
@@ -205,72 +217,85 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
 
   return (
     <div className="shell">
-      <header className="band">
-        {view === 'network' ? (
-          <div className="brand">
-            <BrandMark />
-            <span>Interchange</span>
-          </div>
-        ) : (
-          <button className="brand" onClick={() => setView('network')} aria-label="Interchange, back to the network map">
-            <BrandMark />
-            <span>Interchange</span>
-          </button>
-        )}
-        <nav className="nav" aria-label="Views">
-          {tab('network', 'Network', true)}
-          {tab('route', 'Route', !!plan)}
-          {tab('app', 'App', !!spec)}
-        </nav>
-        <form
-          className="goal"
-          onSubmit={(e) => {
-            e.preventDefault();
-            runPlan(goal);
-          }}
-        >
-          <label className="sr-only" htmlFor="goal">
-            What do you want to see?
-          </label>
-          <input
-            id="goal"
-            ref={goalRef}
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            placeholder={pinned ? `Using ${STATION_BY_ID[pinned].name}. What do you want to see, and where?` : 'What do you want to see, and where?'}
-            autoComplete="off"
-          />
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? 'Planning' : 'Plan'}
-          </button>
-          <button className="btn btn-quiet" type="button" onClick={() => setModal({ kind: 'key' })} title="Use Claude to read goals">
-            {apiKey ? 'Claude on' : 'Claude'}
-          </button>
-        </form>
+      <header className="band builder-band">
+        <a className="brand" href="#" aria-label="Interchange, about the project">
+          <BrandMark />
+          <span>Interchange</span>
+        </a>
+        <JourneyNav current={view} reached={{ ask: true, route: !!plan, app: !!spec }} onGo={setView} />
+        <button className="btn btn-quiet reader-btn" type="button" onClick={() => setModal({ kind: 'key' })}>
+          {apiKey ? 'Reading with Claude' : 'Reader: built-in'}
+        </button>
       </header>
 
       <main className="view">
-        {view === 'network' && (
-          <div className="network">
-            <div className="network-head">
-              <h1>Every dataset is a station. Your project is a route.</h1>
-              <p>
-                Type what you want to see and where. Interchange draws the line from the right satellites to a live map app, and shows why each stop was picked.
-                Or tap a station to see what it measures and what it's bad at.
-              </p>
-            </div>
-            <div className="examples" aria-label="Example goals">
-              {EXAMPLES.map((ex) => (
-                <button key={ex} className="example" onClick={() => runPlan(ex)} disabled={busy}>
-                  {ex}
+        {view === 'ask' && (
+          <div className="ask">
+            <section className="ask-top" aria-labelledby="ask-title">
+              <h1 id="ask-title">What do you want to see, and where?</h1>
+              <form
+                className="ask-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  runPlan(goal);
+                }}
+              >
+                <label className="sr-only" htmlFor="goal">
+                  Your question
+                </label>
+                <textarea
+                  id="goal"
+                  ref={goalRef}
+                  rows={2}
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value.replace(/\n/g, ' '))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      runPlan(goal);
+                    }
+                  }}
+                  placeholder={pinned ? `Riding ${STATION_BY_ID[pinned].name}. What do you want to see, and where?` : 'For example: snow cover in the Alps, winter 2020 vs 2024'}
+                  autoComplete="off"
+                  autoFocus={!initialGoal}
+                />
+                <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy}>
+                  {busy ? 'Planning' : 'Plan the route'}
                 </button>
-              ))}
-            </div>
-            {err && <div className="network-error">{errorNote}</div>}
-            <div style={{ padding: '8px 12px 0', overflowX: 'auto' }}>
-              <NetworkMap selected={dossier} highlight={route ? [route.station] : []} onSelect={setDossier} />
-            </div>
-            <MapKey />
+              </form>
+              <ReadBackSign back={live.back} status={live.status} onPickPlace={() => setModal({ kind: 'place' })} />
+              {pinned && (
+                <p className="hint">
+                  Riding {STATION_BY_ID[pinned].name}.{' '}
+                  <button className="btn-link" onClick={() => setPinned(null)}>
+                    Let the planner choose
+                  </button>
+                </p>
+              )}
+              {err && <div className="ask-error">{errorNote}</div>}
+              <div className="examples" aria-label="Example questions">
+                <span className="examples-label">Or start from one of these</span>
+                {EXAMPLES.map((ex) => (
+                  <button key={ex} className="example" type="button" onClick={() => runPlan(ex, null)} disabled={busy}>
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section className="ask-network" aria-labelledby="net-title">
+              <div className="ask-network-head">
+                <h2 id="net-title">The network</h2>
+                <p>
+                  {live.back?.stations.length
+                    ? 'The stations your question would ride are ringed. Tap any station to see what it measures and what it is bad at.'
+                    : 'Every dataset Interchange knows, on the line for the part of the Earth it watches. Tap a station to see what it measures and what it is bad at.'}
+                </p>
+              </div>
+              <div className="network-scroll">
+                <NetworkMap selected={dossier} highlight={live.back?.stations ?? []} onSelect={setDossier} />
+              </div>
+              <MapKey />
+            </section>
             {dossier && (
               <Dossier
                 id={dossier}
@@ -289,6 +314,12 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
           <div className="split">
             <section className="pane" aria-label="Candidate routes">
               <div className="pane-inner">
+                <p className="route-question">
+                  “{plan.intent.text}”{' '}
+                  <button className="btn-link" onClick={() => setView('ask')}>
+                    Edit
+                  </button>
+                </p>
                 <h2>{routes.length ? `${routes.length} route${routes.length > 1 ? 's' : ''} found` : 'No live route yet'}</h2>
                 <p className="lede">{readingOf(plan.intent, plan)}</p>
                 {pinned && (
@@ -401,8 +432,17 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
               {plan.place ? (
                 <MapView bbox={route?.aoi.bbox ?? plan.place.bbox} corners={null} url={null} marker={null} />
               ) : (
-                <div className="pane-inner">
-                  <p className="lede">Add a place to the goal to see it here.</p>
+                <div className="pane-inner no-place">
+                  <h3>Where should it look?</h3>
+                  <p className="lede">The question doesn't name a place yet. Add one to the question, or pick it on the map.</p>
+                  <div className="route-actions">
+                    <button className="btn btn-primary" onClick={() => setModal({ kind: 'place' })}>
+                      Pick it on the map
+                    </button>
+                    <button className="btn" onClick={() => setView('ask')}>
+                      Edit the question
+                    </button>
+                  </div>
                 </div>
               )}
               {dossier && <Dossier id={dossier} onClose={() => setDossier(null)} onPlan={(id) => { setPinned(id); setDossier(null); goalRef.current?.focus(); }} />}
@@ -435,7 +475,7 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
       </main>
 
       {modal && (
-        <Dialog labelledBy="modal-title" onClose={() => setModal(null)}>
+        <Dialog labelledBy="modal-title" onClose={() => setModal(null)} wide={modal.kind === 'place' || modal.kind === 'ee'}>
           {(close) => (
             <>
               {modal.kind === 'share' && (
@@ -465,6 +505,18 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
                     </button>
                   </div>
                 </>
+              )}
+              {modal.kind === 'place' && (
+                <PlacePicker
+                  initial={live.intent?.place ?? ''}
+                  onCancel={close}
+                  onPick={(p) => {
+                    pickedFor.current = live.intent?.place ?? '';
+                    setPinnedPlace(p);
+                    close();
+                    runPlan(goal || retryGoal || '', p);
+                  }}
+                />
               )}
               {modal.kind === 'key' && (
                 <KeyForm

@@ -5,21 +5,33 @@ import '@fontsource/overpass/800.css';
 import '@fontsource/overpass-mono/400.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
+import './landing.css';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeSpec } from './compiler/spec';
 import { setUrlSigner } from './runtime/cog';
 import { signPlanetaryComputer } from './runtime/stac';
+import { Landing } from './landing/Landing';
 import { AppRuntime } from './ui/AppRuntime';
 import { Builder } from './ui/Builder';
 
 setUrlSigner(signPlanetaryComputer);
 
-function readHash(): { app: string | null; fork: string | null } {
+type Screen =
+  | { kind: 'landing' }
+  | { kind: 'app'; token: string }
+  | { kind: 'build'; fork: string | null; q: string | null; station: string | null };
+
+/** Hash routes, so the static site needs no server rewrites: #app=, #fork=, #build?q=, or the landing page. */
+function readHash(): Screen {
   const h = location.hash.slice(1);
-  if (h.startsWith('app=')) return { app: h.slice(4), fork: null };
-  if (h.startsWith('fork=')) return { app: null, fork: h.slice(5) };
-  return { app: null, fork: null };
+  if (h.startsWith('app=')) return { kind: 'app', token: h.slice(4) };
+  if (h.startsWith('fork=')) return { kind: 'build', fork: h.slice(5), q: null, station: null };
+  if (h === 'build' || h.startsWith('build?') || h.startsWith('build/')) {
+    const params = new URLSearchParams(h.split('?')[1] ?? '');
+    return { kind: 'build', fork: null, q: params.get('q'), station: params.get('station') };
+  }
+  return { kind: 'landing' };
 }
 
 function Published({ token }: { token: string }) {
@@ -43,14 +55,25 @@ function Published({ token }: { token: string }) {
 }
 
 function Root() {
-  const [hash, setHash] = useState(readHash);
+  const [screen, setScreen] = useState(readHash);
   useEffect(() => {
-    const on = () => setHash(readHash());
+    const on = () => {
+      const next = readHash();
+      setScreen((prev) => {
+        // In-page anchors on the landing page keep their scroll; switching screens starts at the top.
+        if (prev.kind !== next.kind) window.scrollTo(0, 0);
+        return prev.kind === 'landing' && next.kind === 'landing' ? prev : next;
+      });
+    };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  if (hash.app) return <Published token={hash.app} />;
-  return <Builder forkToken={hash.fork} />;
+  if (screen.kind === 'app') return <Published token={screen.token} />;
+  if (screen.kind === 'build') {
+    document.title = 'Interchange builder';
+    return <Builder key={`${screen.fork}|${screen.q}|${screen.station}`} forkToken={screen.fork} initialGoal={screen.q} initialStation={screen.station} />;
+  }
+  return <Landing />;
 }
 
 createRoot(document.getElementById('root')!).render(

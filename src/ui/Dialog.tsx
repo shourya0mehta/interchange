@@ -11,10 +11,12 @@ export function Dialog({
   labelledBy,
   onClose,
   children,
+  wide = false,
 }: {
   labelledBy: string;
   onClose: () => void;
   children: (close: () => void) => ReactNode;
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
@@ -49,7 +51,7 @@ export function Dialog({
       onClick={(e) => e.target === e.currentTarget && close()}
       onAnimationEnd={(e) => e.target === e.currentTarget && closing && onClose()}
     >
-      <div className="modal-card">{children(close)}</div>
+      <div className={`modal-card${wide ? ' modal-wide' : ''}`}>{children(close)}</div>
     </dialog>
   );
 }

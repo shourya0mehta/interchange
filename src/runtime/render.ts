@@ -33,23 +33,49 @@ export function presentClasses(result: LayerResult, max = 12): { shown: ClassEnt
   return { shown: present.slice(0, max), more: Math.max(0, present.length - max) };
 }
 
-export function legendFor(result: LayerResult, change = false): Legend {
+export function legendFor(result: LayerResult, change = false, domain?: [number, number]): Legend {
   const { signal, station } = result.recipe;
   if (change) {
     const ramp = changeRamp(result);
     return { kind: 'ramp', ramp, title: ramp.units };
   }
   if (signal === 'landcover') return { kind: 'classes', classes: presentClasses(result).shown, title: CLASS_TITLES[station] ?? 'Land cover' };
-  const ramp = rampFor(signal, result.domain);
+  const ramp = rampFor(signal, domain ?? result.domain);
   return ramp ? { kind: 'ramp', ramp, title: ramp.units } : { kind: 'none' };
 }
 
 /** Pixels for a layer, ready for a canvas. */
-export function layerRgba(result: LayerResult, changeValues?: Float32Array): Uint8ClampedArray {
+/**
+ * One color range for every window of an app, so a swipe or a slider compares like with like.
+ * Adaptive ramps stretch over what the loaded maps hold; others keep their fixed range.
+ */
+export function sharedDomain(results: LayerResult[]): [number, number] | undefined {
+  if (!results.length) return undefined;
+  const r = rampFor(results[0].recipe.signal, results[0].domain);
+  if (!r?.adaptive) return results[0].domain;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const res of results) {
+    const sample: number[] = [];
+    const stride = Math.max(1, Math.floor(res.values.length / 20000));
+    for (let k = 0; k < res.values.length; k += stride) if (!Number.isNaN(res.values[k])) sample.push(res.values[k]);
+    if (!sample.length) continue;
+    sample.sort((a, b) => a - b);
+    lo = Math.min(lo, sample[Math.floor(sample.length * 0.02)]);
+    hi = Math.max(hi, sample[Math.floor(sample.length * 0.98)]);
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return undefined;
+  const mid = (lo + hi) / 2;
+  const half = Math.max(r.adaptive, hi - lo) / 2;
+  // Round outward to whole degrees so the legend reads cleanly.
+  return [Math.floor(mid - half), Math.ceil(mid + half)];
+}
+
+export function layerRgba(result: LayerResult, changeValues?: Float32Array, domain?: [number, number]): Uint8ClampedArray {
   if (changeValues) return rampToRgba(changeValues, changeRamp(result));
   if (result.kind === 'rgb' && result.rgb) return trueColorToRgba(...result.rgb);
   if (result.kind === 'categorical') return classesToRgba(result.values, LANDCOVER_CLASSES[result.recipe.station] ?? []);
-  const ramp = rampFor(result.recipe.signal, result.domain);
+  const ramp = rampFor(result.recipe.signal, domain ?? result.domain);
   return ramp ? rampToRgba(result.values, ramp) : new Uint8ClampedArray(result.values.length * 4);
 }
 

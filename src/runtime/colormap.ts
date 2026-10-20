@@ -14,6 +14,11 @@ export interface Ramp {
   transparentBelow?: number;
   /** How legend and chart numbers read: plain, a share shown as a percent, °C or mm. */
   format?: 'percent' | 'celsius' | 'mm';
+  /**
+   * Stretch the colors over what the map actually holds (2nd to 98th percentile), never
+   * narrower than this span. A Gulf summer at 28 to 31 °C would otherwise be one shade of red.
+   */
+  adaptive?: number;
 }
 
 /** A ramp value in words: 0.42 -> "42%", 21.3 -> "21 °C". */
@@ -180,7 +185,7 @@ const THERMAL = [
 ];
 
 const EXTRA_RAMPS = {
-  sst: { domain: [-2, 32], stops: THERMAL, units: 'Sea surface temperature', low: 'cold', high: 'warm', format: 'celsius' },
+  sst: { domain: [-2, 32], stops: THERMAL, units: 'Sea surface temperature', low: 'cooler', high: 'warmer', format: 'celsius', adaptive: 4 },
   'sst-anomaly': {
     domain: [-3, 3],
     stops: [
@@ -195,8 +200,8 @@ const EXTRA_RAMPS = {
     high: 'warmer',
     format: 'celsius',
   },
-  lst: { domain: [0, 50], stops: THERMAL, units: 'Ground surface temperature by day', low: 'cool', high: 'hot', format: 'celsius' },
-  'air-temp': { domain: [-15, 35], stops: THERMAL, units: 'Average air temperature', low: 'cold', high: 'hot', format: 'celsius' },
+  lst: { domain: [0, 50], stops: THERMAL, units: 'Ground surface temperature by day', low: 'cooler', high: 'hotter', format: 'celsius', adaptive: 8 },
+  'air-temp': { domain: [-15, 35], stops: THERMAL, units: 'Average air temperature', low: 'cooler', high: 'warmer', format: 'celsius', adaptive: 4 },
   'snow-frequency': {
     domain: [0, 1],
     stops: [

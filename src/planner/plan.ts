@@ -421,7 +421,9 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
     } else if (fit.notes.some((n) => /starts in/.test(n) || /ends in/.test(n) || (askedYears && /closest years/.test(n)))) p += 1;
     // A dataset that can only show a sliver of a big place ranks below one that shows all of it.
     const ratio = place && st.live ? placeArea / cap : 0;
-    if (ratio > 4) p += ratio > 50 ? 2 : 1;
+    // Asking about fields, farms or streets says detail matters more than seeing the whole place.
+    const wantsDetail = /\b(fields?|farms?|parcels?|plots?|orchards?|neighbou?rhoods?|streets?|blocks?|detail(ed)?|zoom(ed)? in)\b/i.test(intent.text);
+    if (ratio > (wantsDetail ? 50 : 4)) p += ratio > 50 && !wantsDetail ? 2 : 1;
     // One fixed map can't answer a question about particular dates (a flood, a drought year).
     if (st.temporal === 'static' && (intent.time.kind !== 'snapshot' || intent.theme === 'flood')) p += 2;
     // A stand-in ranks below the real thing when the person named the real thing.
@@ -433,7 +435,9 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
   const rank = (r: Route) => (r.runs === 'live' ? 0 : 3) + (penalty.get(r.id) ?? 0);
   const sliver = (r: Route) => (place && r.runs === 'live' ? Math.max(1, placeArea / previewCap(r.station)) : 1);
   // Among equals, a dataset that shows far more of a big place (MODIS over Landsat for a state) leads.
+  const detail = /\b(fields?|farms?|parcels?|plots?|orchards?|neighbou?rhoods?|streets?|blocks?|detail(ed)?|zoom(ed)? in)\b/i.test(intent.text);
   const farMore = (a: Route, b: Route) => {
+    if (detail) return 0;
     const [x, y] = [sliver(a), sliver(b)];
     return (x > 4 || y > 4) && Math.max(x, y) / Math.min(x, y) > 3 ? x - y : 0;
   };

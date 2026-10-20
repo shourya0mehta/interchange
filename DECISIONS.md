@@ -96,3 +96,14 @@ Open water sends the radar echo away, so it reads below about -17 dB. The radar 
 
 ## The view you publish is the view you see
 A before and after that can be differenced has two views: both dates (the swipe) and the change. The one on screen in the studio goes into the link (`view: 'change'`), and "show only the change" or "show both dates" switches it as a follow-up. The Harvey example opens on the change, since that's where the story is.
+
+## Read the screenshots, not just the pass marks
+The live sweep only checks that a map drew. Reading all 57 screenshots on October 20 found answers that drew but were wrong, and each became a rule with a test:
+- "Against normal" is the sea temperature anomaly.
+- Land cover, built area, forest loss and crops over a span of years are a before and after of the first and last years; a single map can't show change between classes, and a history chart can't draw classes.
+- "In the 1990s" is 1990 to 1999 (it had meant "since 1990", so the map showed this summer).
+- Rain and fires asked about by year are that whole year, not its summer: a year's rain is a total, and fire seasons run into the fall.
+- Countries whose official extent reaches far-off islands use their mainland: the Netherlands' box had its center near Cape Verde, Australia's near Kalgoorlie.
+- "Off the coast of California" is the ocean, not a place called Coast.
+- A month and a place that match a known event get its day: "Houston, before and after August 2017" is Harvey.
+- Words in an event's name aren't the place: "eaton fire" isn't Eaton County, Michigan.

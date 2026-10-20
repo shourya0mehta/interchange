@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { compileRoute, encodeSpec, type AppSpec } from '../compiler/spec';
+import { encodeJourney } from '../compiler/journey';
 import { creditLine } from '../compiler/credit';
 import { LINE_BY_ID, STATIONS, STATION_BY_ID } from '../network/network';
 import { parseGoal } from '../planner/intent';
@@ -43,7 +44,8 @@ const DEPARTURES: { q: string; place: Place }[] = [
 ];
 
 /** The three jobs Interchange is built for, each with a real app behind it. */
-const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; place: Place; shot: string; alt: string; notes?: string; questions?: string[] }[] = [
+type Stop = { q: string; place: Place; caption: string };
+const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; place: Place; shot: string; alt: string; notes?: string; questions?: string[]; journey?: { title: string; label: string; stops: Stop[] } }[] = [
   {
     id: 'newsroom',
     who: 'Newsrooms',
@@ -54,6 +56,14 @@ const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; p
     shot: 'use-newsroom.jpg',
     alt: 'A news article with an embedded Interchange map of Houston flooding, before and after Hurricane Harvey',
     notes: 'Dark areas east of downtown are standing water seen by radar through the storm clouds.',
+    journey: {
+      title: 'Harvey, from radar and rain gauges',
+      label: 'Open a two-stop story',
+      stops: [
+        { q: 'Map flooding in Houston before and after Hurricane Harvey', place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] }, caption: 'Radar sees through the storm. Swipe to after: the dark patches east of downtown are standing water.' },
+        { q: 'How much did it rain in Houston during Hurricane Harvey', place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] }, caption: 'NOAA’s gridded rain gauges for August 2017: over a meter of rain in the darkest cells, heaviest to the east.' },
+      ],
+    },
   },
   {
     id: 'classroom',
@@ -65,6 +75,14 @@ const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; p
     shot: 'use-classroom.jpg',
     alt: 'A published Interchange app comparing Sierra Nevada snow cover in two winters, with questions for students',
     questions: ['Which side of the range kept snow longer in 2023?', 'Why might the same mountains look so different two years apart?'],
+    journey: {
+      title: 'From snowpack to reservoir',
+      label: 'Open a two-stop lesson',
+      stops: [
+        { q: 'Snow cover in the Sierra Nevada, winter 2021 vs winter 2023', place: { name: 'Sierra Nevada', bbox: [-121.5, 35.4, -117.8, 40.3] }, caption: 'Winter 2020-21 was a drought year; 2022-23 broke records. Swipe between them and find where the difference is biggest.' },
+        { q: 'Lake Oroville water, summer 2021 vs summer 2023', place: { name: 'Lake Oroville, California', bbox: [-121.55, 39.5, -121.3, 39.85] }, caption: 'Downstream, the snowmelt fills the state’s second-largest reservoir. Compare its shoreline in the two summers.' },
+      ],
+    },
   },
   {
     id: 'field',
@@ -79,7 +97,7 @@ const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; p
 ];
 
 let cachedDeps: ReturnType<typeof departures> | null = null;
-let cachedJobs: ((typeof JOBS)[number] & { spec: AppSpec | null })[] | null = null;
+let cachedJobs: ((typeof JOBS)[number] & { spec: AppSpec | null; journeyUrl?: string | null })[] | null = null;
 
 const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -163,7 +181,11 @@ export function Landing() {
     if (cachedDeps) return;
     const t = setTimeout(() => {
       cachedDeps = departures();
-      cachedJobs = JOBS.map((j) => ({ ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions }) }));
+      cachedJobs = JOBS.map((j) => {
+        const stops = j.journey?.stops.map((s) => ({ spec: compile(s.q, s.place), caption: s.caption })).filter((s): s is { spec: AppSpec; caption: string } => !!s.spec);
+        const journeyUrl = j.journey && stops && stops.length === j.journey.stops.length ? `#journey=${encodeJourney({ v: 1, title: j.journey.title, stops, createdAt: new Date().toISOString().slice(0, 10) })}` : null;
+        return { ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions }), journeyUrl };
+      });
       setDeps(cachedDeps);
       setJobs(cachedJobs);
     }, 60);
@@ -175,6 +197,7 @@ export function Landing() {
   // The network map is big; draw it when it's about to scroll into view, not on arrival.
   const [netRef, netNear] = useInView<HTMLDivElement>('600px', 0);
   const active = jobs.find((j) => j.id === job)!;
+  const activeJourney = (active as { journeyUrl?: string | null }).journeyUrl ?? null;
 
   useEffect(() => {
     document.title = 'Interchange: satellite maps from a sentence';
@@ -337,6 +360,11 @@ export function Landing() {
                   <a className="btn" href={`#build?q=${encodeURIComponent(active.q)}`}>
                     Rebuild it in the studio
                   </a>
+                  {activeJourney && active.journey && (
+                    <a className="btn-link job-journey" href={activeJourney}>
+                      {active.journey.label}: {active.journey.title}
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -394,7 +422,7 @@ export function Landing() {
             <li>
               <span className="how-n">4</span>
               <h3>Publish</h3>
-              <p>A link that holds the whole app, an embed with the credit line, or an image for a slide. Nothing to host, nothing to log in to.</p>
+              <p>A link that holds the whole app, an embed with the credit line, an image or GIF for a slide, or a journey of several maps with captions. Nothing to host, nothing to log in to.</p>
               <div className="how-ticket" aria-hidden="true">
                 <span>Link</span>
                 <span>Embed</span>

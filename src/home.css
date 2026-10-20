@@ -621,3 +621,9 @@
     transition: none !important;
   }
 }
+.job-journey {
+  display: inline-block;
+  margin-top: 6px;
+  min-height: 44px;
+  padding: 12px 0;
+}

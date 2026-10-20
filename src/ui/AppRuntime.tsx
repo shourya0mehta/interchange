@@ -272,6 +272,7 @@ export function AppRuntime({
       captureRef={captureRef}
       captureBaseRef={captureBaseRef}
       shape={spec.aoi.shape}
+      cooperative={mode === 'embed'}
       onHover={(h) => setHoverAt(h ? { lonLat: h.lonLat, side: h.side } : null)}
       probe={probe}
     />

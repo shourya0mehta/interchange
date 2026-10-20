@@ -7,7 +7,7 @@ import type { Bbox } from '../runtime/geo';
 
 export const BASEMAP = 'https://tiles.openfreemap.org/styles/positron';
 
-export function createMap(container: HTMLElement, bbox: Bbox, opts: { interactive?: boolean } = {}): MlMap {
+export function createMap(container: HTMLElement, bbox: Bbox, opts: { interactive?: boolean; cooperative?: boolean } = {}): MlMap {
   const map = new MlMap({
     container,
     style: BASEMAP,
@@ -16,6 +16,8 @@ export function createMap(container: HTMLElement, bbox: Bbox, opts: { interactiv
     attributionControl: opts.interactive === false ? false : { compact: true },
     interactive: opts.interactive ?? true,
     fadeDuration: 0,
+    // Inside an article or a journey, the page keeps the scroll wheel; zoom takes a modifier key.
+    cooperativeGestures: opts.cooperative ?? false,
   });
   if (opts.interactive ?? true) map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
   return map;

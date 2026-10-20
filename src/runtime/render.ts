@@ -52,6 +52,20 @@ export function legendFor(result: LayerResult, change = false, domain?: [number,
 export function sharedDomain(results: LayerResult[]): [number, number] | undefined {
   if (!results.length) return undefined;
   const r = rampFor(results[0].recipe.signal, results[0].domain);
+  // Rain runs from zero to the wettest the maps hold, so a month like Harvey's (a meter of rain)
+  // isn't one flat color against a range made for ordinary months.
+  if (results[0].recipe.signal === 'precip') {
+    let hi = 0;
+    for (const res of results) {
+      const sample: number[] = [];
+      const stride = Math.max(1, Math.floor(res.values.length / 20000));
+      for (let k = 0; k < res.values.length; k += stride) if (!Number.isNaN(res.values[k])) sample.push(res.values[k]);
+      if (!sample.length) continue;
+      sample.sort((a, b) => a - b);
+      hi = Math.max(hi, sample[Math.floor(sample.length * 0.98)]);
+    }
+    return hi > 0 ? [0, Math.max(50, Math.ceil(hi / 10) * 10)] : results[0].domain;
+  }
   if (!r?.adaptive) return results[0].domain;
   let lo = Infinity;
   let hi = -Infinity;

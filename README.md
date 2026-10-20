@@ -4,7 +4,7 @@
 
 Try it: **[shourya0mehta.github.io/interchange](https://shourya0mehta.github.io/interchange/)**. Type a question on the home page and press Build this map, or open the studio and start from a job.
 
-Interchange is a prompt-to-app builder for Earth observation, a Base44 for satellite maps. You write one sentence ("compare greenness of fields in Fresno County, summer 2019 vs summer 2025") and the studio builds a live map app straight away, showing each step it took: the place it found, the dataset it chose and why, the dates and the method. You refine it by asking ("compare with 2010 instead", "use Landsat", "zoom out", "add a history chart where I click"); every version stays one click away. When it's right, Publish gives you a link that holds the whole app, an embed with the data provider's credit line, a 16:9 or square image with legend and credits, or the Earth Engine script.
+Interchange is a prompt-to-app builder for Earth observation, a Base44 for satellite maps. You write one sentence ("compare greenness of fields in Fresno County, summer 2019 vs summer 2025") and the studio builds a live map app straight away, showing each step it took: the place it found, the dataset it chose and why, the dates and the method. You refine it by asking ("compare with 2010 instead", "use Landsat", "zoom out", "add a history chart where I click"); every version stays one click away. When it's right, Publish gives you a link that holds the whole app, an embed with the data provider's credit line, a 16:9 or square image with legend and credits, an animated GIF for apps with several dates, or the Earth Engine script. Several maps can be strung into a **journey**: a scrolling story with a caption at each stop, where the map changes as the reader reaches it.
 
 Everything runs in the browser on open data. There is no server, no account and no compute bill.
 
@@ -37,7 +37,8 @@ sentence ─▶ intent ─▶ place ─▶ candidate routes ─▶ type check �
 3. **Type-check and compile.** A route is a typed program; a swipe needs exactly two windows, a history chart needs a dataset that changes over time. The route becomes an `AppSpec` small enough to live in the URL.
 4. **Run.** The runtime searches STAC catalogs (Earth Search, Planetary Computer), reads only the COG windows it needs at an overview matched to the screen, masks clouds with each scene's own classification, blends up to three clear days, computes the index, reprojects into a Web Mercator grid and draws it under MapLibre's labels. New pixels arrive under a scan line, and a probe under the cursor reads out the value there.
 5. **Refine.** A follow-up request changes only what it mentions (dates, place, dataset, view or zoom) and rebuilds.
-6. **Publish.** A link, an embed (`#embed=`), a PNG drawn from the map canvases with title, dates, legend and credit line, or an Earth Engine script.
+6. **Publish.** A link, an embed (`#embed=`), a PNG drawn from the map canvases with title, dates, legend and credit line, an animated GIF with one frame per date, an Earth Engine script, or a journey (`#journey=`) of several maps with captions.
+7. **Your own boundary.** Upload a GeoJSON or KML field or district, and the map, its area totals and its GIF are masked to it.
 
 ## What it can answer today
 
@@ -75,7 +76,7 @@ Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic Wo
 - Tompkins County NDVI from Sentinel-2: about 3 seconds for a 768-pixel grid, from STAC search to pixels (Node, same code path as the browser).
 - Click-for-history at a farm field, one year of Sentinel-2: 57 scenes searched, 36 clear looks, under 6 seconds.
 - Gallery test: 10 of 10 sampled public Earth Engine apps rebuilt from one sentence with no hand edits (`test/gallery.test.ts`).
-- Browser smoke test: 32 checks across the home page and globe, the studio from a question to an app, a follow-up request and an unclear one, publishing as a link, embed, image and animated GIF, embed mode, a history chart, land cover totals, sea surface temperature, a boundary file, your recent maps, the place picker and phone layouts, zero console errors (`scripts/smoke.mjs`).
+- Browser smoke test: 34 checks across the home page and globe, the studio from a question to an app, a follow-up request and an unclear one, publishing as a link, embed, image and animated GIF, a journey, embed mode, a history chart, land cover totals, sea surface temperature, a boundary file, your recent maps, the place picker and phone layouts, zero console errors (`scripts/smoke.mjs`).
 
 ## What is not built
 

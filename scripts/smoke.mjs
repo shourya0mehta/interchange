@@ -80,6 +80,17 @@ await page.screenshot({ path: `${OUT}/3-follow-up.png` });
 ok('follow-up rebuilds on Landsat for 2010', (await page.locator('.turn-built').last().innerText()).includes('Landsat'));
 ok('earlier version can be restored', (await page.getByRole('button', { name: 'Show this version' }).count()) >= 1);
 
+// A journey: add this map as a stop, caption it, publish it.
+await page.getByRole('button', { name: 'Add to journey' }).click();
+await page.getByRole('button', { name: /Journey: 1 stop/ }).click();
+await page.fill('.journey-editor input', 'Fresno County, then and now');
+await page.fill('#cap-0', 'Greener fields in 2025 than in 2010.');
+await page.getByRole('button', { name: 'Publish the journey' }).click();
+const journeyUrl = await page.locator('.journey-editor .share-code').innerText();
+ok('journey link holds the stops', journeyUrl.includes('#journey='));
+await page.getByRole('button', { name: 'Done' }).click();
+await page.waitForSelector('.journey-editor', { state: 'detached', timeout: 5_000 });
+
 // Publish: link, embed, image.
 await page.getByRole('button', { name: 'Publish', exact: true }).click();
 await page.waitForSelector('.share');
@@ -102,6 +113,14 @@ await waitIdle(pub);
 await pub.waitForTimeout(2000);
 await pub.screenshot({ path: `${OUT}/5-published.png` });
 ok('published app has fork button', await pub.getByRole('button', { name: 'Fork this route' }).isVisible());
+const trip = await ctx.newPage();
+watch(trip);
+await trip.goto(journeyUrl);
+await trip.waitForSelector('.journey-stops li');
+await trip.waitForSelector('.embed-card', { timeout: 20_000 });
+await trip.waitForTimeout(1500);
+await trip.screenshot({ path: `${OUT}/5b-journey.png` });
+ok('journey page shows its stop and map', (await trip.locator('.journey-caption').innerText()).includes('Greener fields'));
 const emb = await ctx.newPage();
 watch(emb);
 await emb.setViewportSize({ width: 900, height: 540 });

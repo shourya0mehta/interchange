@@ -22,6 +22,7 @@ import { Landing } from './landing/Landing';
 import { AppRuntime } from './ui/AppRuntime';
 import { BrandMark } from './ui/BrandMark';
 import { Studio } from './ui/Studio';
+import { JourneyView } from './ui/JourneyView';
 import { Swap } from './ui/Swap';
 
 setUrlSigner(signPlanetaryComputer);
@@ -30,6 +31,7 @@ type Screen =
   | { kind: 'landing' }
   | { kind: 'app'; token: string }
   | { kind: 'embed'; token: string }
+  | { kind: 'journey'; token: string }
   | { kind: 'build'; fork: string | null; q: string | null; station: string | null };
 
 /** Hash routes, so the static site needs no server rewrites: #app=, #fork=, #build?q=, or the landing page. */
@@ -37,6 +39,7 @@ function readHash(): Screen {
   const h = location.hash.slice(1);
   if (h.startsWith('app=')) return { kind: 'app', token: h.slice(4) };
   if (h.startsWith('embed=')) return { kind: 'embed', token: h.slice(6) };
+  if (h.startsWith('journey=')) return { kind: 'journey', token: h.slice(8) };
   if (h.startsWith('fork=')) return { kind: 'build', fork: h.slice(5), q: null, station: null };
   if (h === 'build' || h.startsWith('build?') || h.startsWith('build/')) {
     const params = new URLSearchParams(h.split('?')[1] ?? '');
@@ -96,10 +99,11 @@ function Root() {
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  const key = screen.kind === 'app' || screen.kind === 'embed' ? `${screen.kind}|${screen.token}` : screen.kind === 'build' ? `build|${screen.fork}|${screen.q}|${screen.station}` : 'landing';
+  const key = screen.kind === 'app' || screen.kind === 'embed' || screen.kind === 'journey' ? `${screen.kind}|${screen.token}` : screen.kind === 'build' ? `build|${screen.fork}|${screen.q}|${screen.station}` : 'landing';
   let body;
   if (screen.kind === 'app') body = <Published token={screen.token} />;
   else if (screen.kind === 'embed') body = <Embedded token={screen.token} />;
+  else if (screen.kind === 'journey') body = <JourneyView token={screen.token} />;
   else if (screen.kind === 'build') {
     document.title = 'Interchange studio';
     body = <Studio forkToken={screen.fork} initialGoal={screen.q} initialStation={screen.station} />;

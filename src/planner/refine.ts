@@ -1,4 +1,5 @@
 import { THEME_CUES, STATION_CUES, VIEW_CUES, parseGoal, parseTime, placeCandidates, type Intent } from './intent';
+import { eventIn } from './gazetteer';
 import type { ComponentId } from '../network/types';
 
 /**
@@ -63,7 +64,9 @@ export function refine(prev: Intent, text: string, now: Date = new Date()): Refi
   }
 
   // Time: re-read with the old season and, when only one year is named, the old end year.
-  const timeSaid = TIME_RE.test(said);
+  // A named storm or fire brings its own dates ("during harvey").
+  const event = eventIn(said);
+  const timeSaid = TIME_RE.test(said) || !!event;
   const mainChanged = viewsSaid.some((v) => MAIN_VIEWS.includes(v) && !prev.views.includes(v));
   let time = prev.time;
   let season = prev.season;
@@ -81,10 +84,18 @@ export function refine(prev: Intent, text: string, now: Date = new Date()): Refi
       tv = [...tv, 'swipe'];
       if (prev.time.kind === 'snapshot') timeText += ` ${b}`;
     }
-    const pt = parseTime(timeText, theme, tv, now);
-    time = pt.time;
-    season = pt.season ?? prev.season;
-    views = tv;
+    if (event) {
+      // The event's own reading wins: a before and after, or that month for rain.
+      time = parsed.time;
+      season = parsed.season;
+      const main = parsed.time.kind === 'compare' ? 'swipe' : null;
+      views = [...views.filter((x) => !MAIN_VIEWS.includes(x)), ...(main ? [main as ComponentId] : [])];
+    } else {
+      const pt = parseTime(timeText, theme, tv, now);
+      time = pt.time;
+      season = pt.season ?? prev.season;
+      views = tv;
+    }
     changes.push(`Dates: ${describeTime(time)}`);
   }
   const sameViews = views.length === prev.views.length && views.every((x) => prev.views.includes(x));

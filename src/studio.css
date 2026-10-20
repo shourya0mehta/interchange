@@ -1114,3 +1114,238 @@ a.btn {
 .brand[data-pressed] {
   opacity: 0.7;
 }
+
+/* ---- Journeys ------------------------------------------------------------------------ */
+.chip-journey {
+  border-color: var(--cobalt);
+  color: var(--cobalt);
+  font-weight: 600;
+}
+.chip-journey:disabled {
+  opacity: 0.6;
+}
+.band .journey-btn {
+  color: var(--highlighter);
+}
+.journey-editor .field {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--mute);
+  margin-bottom: 12px;
+}
+.journey-editor input,
+.journey-editor textarea {
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--white);
+}
+.journey-editor textarea {
+  width: 100%;
+  resize: vertical;
+  margin-top: 6px;
+}
+.je-stops {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0 0 0 4px;
+  display: grid;
+  gap: 0;
+  position: relative;
+}
+.je-stops li {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 12px;
+  padding: 10px 0;
+  position: relative;
+}
+.je-stops li::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--route-color, var(--ink));
+}
+.je-stops li:first-child::before {
+  top: 24px;
+}
+.je-stops li:last-child::before {
+  bottom: calc(100% - 24px);
+}
+.je-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.je-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.je-tools .chip {
+  min-height: 30px;
+  font-size: 12px;
+}
+.journey-dot {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 3px solid var(--route-color, var(--ink));
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+/* The published journey: captions down the left, one map at a time on the right. */
+.journey-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100%;
+}
+.trip {
+  display: grid;
+  grid-template-columns: minmax(320px, 460px) 1fr;
+  min-height: 0;
+}
+.journey-text {
+  padding: 32px 28px 40vh;
+  border-right: 1.5px solid var(--ink);
+  background: var(--paper);
+}
+.journey-head h1 {
+  font-size: clamp(34px, 3.4vw, 50px);
+  line-height: 1;
+  margin: 6px 0 12px;
+}
+.journey-head p {
+  color: var(--mute);
+  font-size: 17px;
+}
+.journey-kicker {
+  font-family: var(--display);
+  font-weight: 600;
+  color: var(--cobalt);
+}
+.journey-stops {
+  list-style: none;
+  margin: 40px 0 0;
+  padding: 0;
+}
+.journey-stops > li {
+  position: relative;
+  padding: 0 0 38vh 52px;
+  opacity: 0.55;
+  transition: opacity var(--motion-md) var(--ease-out);
+}
+.journey-stops > li[data-active] {
+  opacity: 1;
+}
+.journey-stops > li::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 34px;
+  bottom: -2px;
+  width: 4px;
+  background: var(--route-color);
+}
+.journey-stops > li:last-child::before {
+  display: none;
+}
+.journey-stops .journey-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.journey-stops > li[data-active] .journey-dot {
+  background: var(--highlighter);
+}
+.journey-stops > li[data-passed] .journey-dot {
+  background: var(--route-color);
+  color: var(--white);
+}
+.journey-stops h2 {
+  font-size: 24px;
+  margin: 2px 0 4px;
+}
+.journey-when {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--mute);
+  margin: 0 0 10px;
+}
+.journey-caption {
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+.journey-credit {
+  font-size: 12px;
+  color: var(--mute);
+}
+.journey-open {
+  font-size: 14px;
+}
+.journey-end {
+  color: var(--mute);
+  font-family: var(--display);
+  font-weight: 600;
+}
+.journey-map {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  min-height: 0;
+}
+.journey-map .swap,
+.journey-map .embed {
+  height: 100%;
+}
+@media (max-width: 860px) {
+  .trip {
+    grid-template-columns: 1fr;
+  }
+  .journey-map {
+    order: -1;
+    top: 0;
+    height: 46vh;
+    z-index: 2;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .journey-text {
+    border-right: 0;
+    padding: 20px 16px 30vh;
+  }
+  .journey-stops > li {
+    padding-bottom: 30vh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-stops > li {
+    transition: none;
+  }
+}
+.journey-shell .published-band {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.journey-map {
+  top: var(--band-h);
+  height: calc(100vh - var(--band-h));
+}
+@media (max-width: 860px) {
+  .journey-map {
+    top: var(--band-h);
+    height: 46vh;
+  }
+}

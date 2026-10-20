@@ -25,6 +25,8 @@ import { daysAgo, latestLook } from '../runtime/latest';
 import { forgetMaps, loadRecent, rememberMap } from './recent';
 import { useSlashFocus } from './useSlash';
 import { Swap } from './Swap';
+import { JourneyEditor } from './JourneyEditor';
+import type { JourneyStop } from '../compiler/journey';
 
 /** What one build looked like, so any earlier version can be brought back. */
 interface Version {
@@ -136,7 +138,9 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
   const [draft, setDraft] = useState('');
   const [pinned, setPinned] = useState<string | null>(initialStation && STATION_BY_ID[initialStation] ? initialStation : null);
   const [apiKey, setApiKey] = useState(loadKey);
-  const [modal, setModal] = useState<null | { kind: 'share' } | { kind: 'key' } | { kind: 'place'; text: string; area?: boolean } | { kind: 'ee'; code: string } | { kind: 'route' }>(null);
+  const [modal, setModal] = useState<null | { kind: 'share' } | { kind: 'key' } | { kind: 'place'; text: string; area?: boolean } | { kind: 'ee'; code: string } | { kind: 'route' } | { kind: 'journey' }>(null);
+  const [journey, setJourney] = useState<JourneyStop[]>([]);
+  const [journeyTitle, setJourneyTitle] = useState('');
   const [dossier, setDossier] = useState<string | null>(null);
   const [stop, setStop] = useState<StopKey | null>(null);
   const turnId = useRef(0);
@@ -288,8 +292,11 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
     setVersions(versionsRef.current);
   };
   const patchSpec = (s: AppSpec) => {
+    const old = versionsRef.current[current]?.spec;
     versionsRef.current = versionsRef.current.map((x, i) => (i === current ? { ...x, spec: s } : x));
     setVersions(versionsRef.current);
+    // A title or note edited after the map joined the journey follows it there.
+    if (old) setJourney((prev) => prev.map((j) => (j.spec === old ? { ...j, spec: s } : j)));
   };
 
   // Arriving with a question (from the landing page) or a fork.
@@ -346,6 +353,11 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
           </button>
         )}
         <span className="band-spacer" />
+        {journey.length > 0 && (
+          <button className="btn btn-quiet journey-btn" type="button" onClick={() => setModal({ kind: 'journey' })}>
+            Journey: {journey.length} {journey.length === 1 ? 'stop' : 'stops'}
+          </button>
+        )}
         <button className="btn btn-quiet reader-btn" type="button" onClick={() => setModal({ kind: 'key' })}>
           {apiKey ? 'Reading with Claude' : 'Reader: built-in'}
         </button>
@@ -437,6 +449,13 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
                     onRide={ride}
                     onDetails={() => setModal({ kind: 'route' })}
                     onArea={() => setModal({ kind: 'place', text: '', area: true })}
+                    inJourney={!!versions[t.version]?.spec && journey.some((j) => j.spec === versions[t.version]?.spec)}
+                    onJourney={() => {
+                      const sp = versions[t.version]?.spec;
+                      if (!sp || journey.some((j) => j.spec === sp)) return;
+                      setJourney((prev) => [...prev, { spec: sp, caption: '' }]);
+                      push({ who: 'ic', kind: 'note', text: `Added as stop ${journey.length + 1} of your journey. Build more maps and add them, then open Journey to caption and publish.` });
+                    }}
                     onAbout={(id) => setDossier(id)}
                     onExport={(code) => setModal({ kind: 'ee', code })}
                   />
@@ -580,6 +599,7 @@ export function Studio({ forkToken, initialGoal, initialStation }: { forkToken: 
                   }}
                 />
               )}
+              {modal.kind === 'journey' && <JourneyEditor title={journeyTitle} stops={journey} onTitle={setJourneyTitle} onStops={setJourney} onClose={close} />}
               {modal.kind === 'key' && (
                 <KeyForm
                   current={apiKey}
@@ -609,8 +629,12 @@ function BuiltTurn({
   onAbout,
   onExport,
   onArea,
+  onJourney,
+  inJourney,
 }: {
   onArea: () => void;
+  onJourney: () => void;
+  inJourney: boolean;
   turn: Extract<Turn, { kind: 'built' }>;
   version: Version | undefined;
   isCurrent: boolean;
@@ -656,6 +680,11 @@ function BuiltTurn({
             <button className="chip" onClick={onArea}>
               Change the area
             </button>
+            {turn.live && (
+              <button className="chip chip-journey" onClick={onJourney} disabled={inJourney}>
+                {inJourney ? 'In your journey' : 'Add to journey'}
+              </button>
+            )}
             <button className="chip" onClick={() => onAbout(route.station)}>
               About {shortName(STATION_BY_ID[route.station])}
             </button>

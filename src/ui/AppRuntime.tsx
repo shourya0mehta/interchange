@@ -300,6 +300,20 @@ export function AppRuntime({
                   GeoTIFF of this map
                 </button>
               )}
+              {current.kind === 'rgb' && (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    const url = urlFor(current);
+                    if (!url) return;
+                    const bin = atob(url.slice(url.indexOf(',') + 1));
+                    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+                    download(`${spec.aoi.name.replace(/\W+/g, '-').toLowerCase()}-true-color-${windowLabel.replace(/\W+/g, '-').toLowerCase()}.png`, bytes, 'image/png');
+                  }}
+                >
+                  Image of this map (PNG)
+                </button>
+              )}
               {series && series.points.length > 0 && point && (
                 <button className="btn" onClick={() => download(`${spec.signal}-history.csv`, seriesCsv(series.points, spec.signal, point), 'text/csv')}>
                   CSV of the history

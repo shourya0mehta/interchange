@@ -8,11 +8,15 @@ Interchange is a prompt-to-app builder for Earth observation. You write one sent
 
 Everything runs in the browser on open data. There is no server, no account and no compute bill.
 
-| The network | A route for one sentence |
+![Landing page: a typed question read back on the sign, and its route drawn across the network](docs/landing.jpg)
+
+| Ask: the sign reads back what it heard | Route: candidates with trade-offs |
 | --- | --- |
-| ![Transit map of the observing system](docs/network.jpg) | ![Candidate routes with trade-offs](docs/route.jpg) |
+| ![Ask step with the read-back sign](docs/ask.jpg) | ![Candidate routes with trade-offs](docs/route.jpg) |
 | **Swipe app: Fresno County greenness, summer 2019 vs 2025** | **Click-for-history app: Tompkins County fields since 2018** |
 | ![Before and after swipe](docs/app-swipe.jpg) | ![Map with a history chart](docs/app-history.jpg) |
+| **Sea surface temperature: the Gulf of Mexico, last summer** | |
+| ![Sea surface temperature over the Gulf of Mexico](docs/app-sst.jpg) | |
 
 ## How it works
 
@@ -56,8 +60,8 @@ Each dataset previews as much of a place as it can read quickly, which depends o
 Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic World, AlphaEarth, GEDI, Hansen forest change, night lights, SNOTEL, Argo) sit on the network map with dossiers. Routes through them end in an Earth Engine export instead of a live app.
 
 ## Tested
-- **Prompt bank** (`test/prompts.test.ts`, `test/prompt-variants.test.ts`): 144 sentences across every theme and dataset, written the way people type them (lowercase, misspelled, coordinates, nicknames like NYC and LA, oceans, "1999-now", "summer '19"), and the same questions reworded several ways. Each is checked for place, theme, dates, the leading route, the type check and the compiled app.
-- **Live prompts** (`scripts/prompts-live.mjs`): 36 questions typed into the real site, planned, built and checked for a drawn map (and a history chart where asked), two rounds each, against the real geocoders and catalogs.
+- **Prompt bank** (`test/prompts.test.ts`, `test/prompt-variants.test.ts`): 159 sentences across every theme and dataset, written the way people type them. They include lowercase, misspellings, coordinates ("lat 36.7 lon -119.8"), nicknames like NYC and LA, oceans, "1999-now", "summer '19", "right now", "in July", "hotter than" and "shrinking", plus the same questions reworded several ways. Each is checked for place, theme, dates, the leading route, the type check and the compiled app.
+- **Live prompts** (`scripts/prompts-live.mjs`): 46 questions typed into the built site, planned, built and checked for a drawn map (and a history chart where asked), against the real geocoders and catalogs. On October 19, round two drew all 46 on the first try, in about 13 seconds each on average. In round one, 44 of 46 drew on the first try; the two misses were a check that expected a legend on a true-color map and a connection dropped by a workspace restart, and both drew on rerun.
 - **Datasets** (`INTEGRATION=1 npm test`): real pixels from every new dataset, with plausible values (Phoenix summer ground near 50 °C, Gulf summer sea near 30 °C).
 
 ## Measured
@@ -65,6 +69,7 @@ Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic Wo
 - Tompkins County NDVI from Sentinel-2: about 3 seconds for a 768-pixel grid, from STAC search to pixels (Node, same code path as the browser).
 - Click-for-history at a farm field, one year of Sentinel-2: 57 scenes searched, 36 clear looks, under 6 seconds.
 - Gallery test: 10 of 10 sampled public Earth Engine apps rebuilt from one sentence with no hand edits (`test/gallery.test.ts`).
+- Feel (kymo, desktop and phone): 22 findings after the redesign (2 errors, 7 warnings, 13 suggestions) down to 10 warnings. What's left is MapLibre's first frame under headless software WebGL and view changes the probe reads as lost content.
 - Browser smoke test: 21 checks across the landing page, the Ask, Route and App steps, publishing, a history chart, land cover stats, sea surface temperature, the place picker and phone layouts, zero console errors (`scripts/smoke.mjs`).
 
 ## What is not built
@@ -73,6 +78,7 @@ Thirteen more stations (ERA5, CHIRPS, SMAP, GRACE, Sentinel-5P, GOES, Dynamic Wo
 - Live previews are capped per dataset (see the table). Bigger places preview their center.
 - The copies read here have gaps: OISST skips mid-2024 through 2025, NClimGrid ends in September 2022, the Cropland Data Layer in 2021.
 - No accounts, uploads beyond the place name, private data, alerts or classification from examples (AlphaEarth embeddings are v3).
+- Seasons are northern-hemisphere: "summer" on the Great Barrier Reef still means June to August.
 - The rule reader handles plain sentences; looser ones need a Claude key.
 
 ## Run it

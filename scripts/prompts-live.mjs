@@ -105,8 +105,10 @@ async function runOne(p, attempt) {
     if (failed) throw new Error(`layer failed: ${await page.locator('.loading.error').innerText()}`);
     const note = await page.locator('.loading[role="status"]').allInnerTexts();
     if (note.some((n) => /^No .* data|No .* scenes/.test(n))) throw new Error(`no data: ${note.join(' ')}`);
-    const drawn = await page.locator('.legend-ramp, .classes li, .swipe-tags').count();
-    if (!drawn) throw new Error('nothing drawn: no legend');
+    // A legend, land cover classes, swipe tags, or (for true color, which has no legend) the note
+    // naming the acquisitions the map was drawn from.
+    const drawn = (await page.locator('.legend-ramp, .classes li, .swipe-tags').count()) || (await page.getByText(/This view uses \d+ acquisitions?/).count());
+    if (!drawn) throw new Error('nothing drawn: no legend and no acquisitions');
     if (p.chart) {
       const box = await page.getByTestId('map').boundingBox();
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);

@@ -29,6 +29,9 @@ Type: IBM Plex Sans Condensed for headings, buttons and labels; IBM Plex Sans fo
 7. **Development.** On arrival the globe's characters flicker through other glyphs and settle into the real planet, cell by cell; a click sends a cobalt ripple out from the spot.
 8. **Probe.** On any map, a highlighter tag follows the cursor with the value under it ("0.62 NDVI", "Built area"), the way you'd mark up a printout.
 9. **Journey line.** A published journey draws its stops on a transit line in the dataset's color; the stop you're reading is highlighted, the ones you've passed are filled.
+10. **Printout.** An exported slide image or GIF prints into the Publish dialog under the same scan line as the map's pixels.
+
+Map color follows meaning, not the palette: radar draws open water in blue below its -17 dB break and everything else in greys, and a radar change map keeps blue for darkening (new water) and a pale tan for brightening, so the story color is the strong one.
 
 All of it stops under reduced motion: the globe holds still, flips and sweeps are instant.
 

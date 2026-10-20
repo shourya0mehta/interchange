@@ -44,6 +44,8 @@ ok('departures board lists real apps', (await page.locator('.board a[href*="#app
 await page.getByRole('tab', { name: /Classrooms/ }).click();
 await page.waitForFunction(() => document.querySelector('.job-panel img')?.getAttribute('src')?.includes('classroom'), null, { timeout: 5_000 }).catch(() => {});
 ok('jobs switch to classrooms', (await page.locator('.job-panel img').getAttribute('src')).includes('classroom'));
+await page.locator('#network').scrollIntoViewIfNeeded();
+await page.waitForSelector('.station-hit', { timeout: 10_000 });
 ok('network map draws every station', (await page.locator('.station-hit').count()) >= 28);
 await page.getByRole('button', { name: /^Sentinel-2, runs live/ }).click();
 await page.waitForSelector('.dossier');

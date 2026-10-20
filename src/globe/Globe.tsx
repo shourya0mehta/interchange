@@ -93,6 +93,7 @@ const EMPHASIS_GROUPS: Record<Emphasis, number[] | null> = {
 };
 
 const RAD = Math.PI / 180;
+const SCRAMBLE = '.:-=+*#%@~;';
 const EARTH_KM = 6371;
 
 /** Sprite atlas: one small canvas per glyph, color and alpha step, drawn once. */
@@ -189,9 +190,12 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
     let lastDraw = 0;
     let hover: { x: number; y: number } | null = null;
 
+    let loadedAt = 0;
+    const ripples: { x: number; y: number; t: number }[] = [];
     loadEarth()
       .then((e) => {
         earth = e;
+        loadedAt = performance.now();
         canvas.dataset.ready = 'true';
         schedule();
       })
@@ -275,7 +279,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
         draw(now);
         lastDraw = now;
       }
-      const settling = v.target && now - v.target.t0 < 1500;
+      const settling = (v.target && now - v.target.t0 < 1500) || (loadedAt && now - loadedAt < 1400) || ripples.length > 0;
       if (visible && !document.hidden && (!reduced || settling || v.dragging || Math.abs(v.vLon) > 0.001)) schedule();
     }
 
@@ -359,6 +363,16 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
             glyph = s.urban >= 6 && s.group !== 6 ? '@' : GLYPH[s.group];
             color = s.urban >= 6 ? INK.built : COLOR[s.group];
           }
+          // On arrival the planet develops: each cell flickers through other glyphs, then settles.
+          const dev = reduced ? 1 : (now - loadedAt) / 1300;
+          if (dev < 1) {
+            const h = ((r * 73856093) ^ (c * 19349663)) >>> 0;
+            const at = (h % 1000) / 1000;
+            if (dev < at) {
+              glyph = SCRAMBLE[(h + Math.floor(now / 70)) % SCRAMBLE.length];
+              color = INK.tundra;
+            }
+          }
           const inBox = box && latD >= box[1] && latD <= box[3] && lonD >= box[0] && lonD <= box[2];
           let alpha = 0.32 + 0.68 * Math.pow(g.light, 0.6);
           const dimFrom = fromG && !fromG.includes(s.group) ? 0.5 : 1;
@@ -371,7 +385,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
           }
           if (inBox) {
             // The place in the question, marked with a highlighter.
-            ctx.fillStyle = INK.highlight;
+            ctx.fillStyle = 'rgba(228, 238, 74, 0.6)';
             ctx.fillRect(c * cw, r * ch, cw, ch);
             color = INK.ink;
             alpha = 1;
@@ -429,6 +443,20 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
           ctx.stroke();
           ctx.setLineDash([]);
         }
+      }
+
+      // Ripples where the planet was clicked.
+      for (let k = ripples.length - 1; k >= 0; k--) {
+        const age = (now - ripples[k].t) / 650;
+        if (age >= 1) {
+          ripples.splice(k, 1);
+          continue;
+        }
+        ctx.strokeStyle = `rgba(29,63,214,${1 - age})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ripples[k].x, ripples[k].y, 6 + age * 34, 0, Math.PI * 2);
+        ctx.stroke();
       }
 
       // Hover reticle.
@@ -506,7 +534,10 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
       const { x, y } = local(e);
       if (down && !down.moved) {
         const g = geoAt(x, y);
-        if (g) props.current.onPick?.(g.lat, g.lon, g.sample);
+        if (g) {
+          if (!reduced) ripples.push({ x, y, t: performance.now() });
+          props.current.onPick?.(g.lat, g.lon, g.sample);
+        }
       }
       v.dragging = false;
       down = null;

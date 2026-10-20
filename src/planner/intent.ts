@@ -86,7 +86,9 @@ const CROPS = String.raw`(?:corn|maize|soy(?:beans?)?|wheat|cotton|rice|sorghum|
 
 const THEME_CUES: [Theme, RegExp][] = [
   ['cover-crop', /\bcover[- ]?crops?\b|\bbare (soil|fields?)\b|\bstayed bare\b|\bwinter (cover|rye)\b/i],
-  ['crop-type', new RegExp(String.raw`\b(what|which) (kinds? of |types? of )?crops?\b|\bcrop (types?|maps?|mix|rotations?|classes)\b|\btypes? of crops?\b|\bwhat(?: is|'s| was| gets?| got| are) (grown|planted|farmed)\b|\b(grown|planted|farmed) (in|around|near|across)\b|\bwhere .*\b(grown|planted)\b|\b${CROPS}\b`, 'i')],
+  ['crop-type', new RegExp(String.raw`\b(what|which) (kinds? of |types? of )?crops?\b|\bcrop (types?|maps?|mix|rotations?|classes)\b|\btypes? of crops?\b|\bwhat(?: is|'s| was| gets?| got| are) (grown|planted|farmed)\b|\b(grown|planted|farmed) (in|around|near|across)\b|\bwhere .*\b(grown|planted)\b|\b${CROPS}\b(?! belt)`, 'i')],
+  // "How much forest did Brazil lose": loss, not a share.
+  ['forest-loss', /\b(forests?|trees?|rain ?forests?|jungle)\b.*\b(lose|lost|loss|losing|cut down|cleared|disappear\w*)\b|\b(lose|lost|loss of|losing)\b.*\b(forests?|trees|rain ?forests?)\b/i],
   // "How much of X is forest?" asks for class areas, which land cover answers directly.
   ['landcover', /\b(how much|what share|what percent(age)?|share of|percent(age)? of)\b.*\b(cropland|farmland|forest(ed)?|trees|tree cover|wetlands?|grassland|rangeland|shrubland|bare)\b/i],
   ['ocean', new RegExp(String.raw`\bsea[- ]surface\b|\bsst\b|\b(ocean|sea|marine|gulf|bay|water) ${TEMP}|\b${TEMP} of the (ocean|sea|gulf)\b|\bocean (heat|warming)\b|\bmarine heat ?waves?\b|\bcoral bleaching\b|\bsalinity\b|\bargo\b|\bel ni[nñ]o\b|\bla ni[nñ]a\b`, 'i')],
@@ -96,9 +98,9 @@ const THEME_CUES: [Theme, RegExp][] = [
   ['snow', /\bsnow\w*|\bglacier\w*|\bice cover\b|\bsea ice\b|\bski season\b/i],
   ['night-lights', /\bnight ?lights?\b|\bpower outages?\b|\bblackouts?\b|\blights at night\b/i],
   ['air', /\bair (quality|pollution)\b|\bno2\b|\bnitrogen dioxide\b|\bsmog\b|\bemissions?\b|\bmethane\b/i],
-  ['heat', new RegExp(String.raw`\bheat( islands?| waves?| stress)?\b|\b${TEMP}\b|\bhottest\b|\bcoolest\b|\bwarm(ed|ing|er|est|th)?\b`, 'i')],
+  ['heat', new RegExp(String.raw`\bheat( islands?| waves?| stress)?\b|\blst\b|\bland surface temp\w*|\b${TEMP}\b|\bhot(ter|test)?\b|\bcold(er|est)?\b|\bcoolest\b|\bfreezing\b|\bwarm(ed|ing|er|est|th)?\b`, 'i')],
   ['rain', /\brain(fall|y)?\b|\bprecip\w*|\bmonsoon\b|\bwettest\b|\bdriest\b/i],
-  ['soil-moisture', /\bsoil moisture\b|\bdrought\b/i],
+  ['soil-moisture', /\bsoil moisture\b|\bdrought\b|\bhow dry\b|\bdry (spell|conditions|year|summer|season)\b|\bdryness\b|\baridity\b/i],
   ['groundwater', /\bgroundwater\b|\baquifers?\b|\bwater table\b/i],
   ['canopy-height', /\bcanopy height\b|\btree height\b|\bforest height\b|\bhow tall\b/i],
   ['built', /\burban\w*|\bsprawl\b|\bbuilt[- ]?(up|area)?\b|\bdevelopment\b|\bconstruction\b|\bnew (homes|housing|buildings)\b|\bsolar farms?\b|\bdata cent(er|re)s?\b|\bimpervious\b/i],
@@ -129,7 +131,7 @@ const STATION_CUES: [string, RegExp][] = [
 // ---- Views ---------------------------------------------------------------------------
 
 const VIEW_CUES: [ComponentId, RegExp][] = [
-  ['swipe', /\bbefore and after\b|\bbefore\/after\b|\bcompare\b|\bcompared\b|\bvs\.?\b|\bversus\b|\bswipe\b|\bside by side\b|\bhow (much )?(has|have|did) .* change/i],
+  ['swipe', /\bbefore and after\b|\bbefore\/after\b|\bcompare\b|\bcompared\b|\bvs\.?\b|\bversus\b|\bswipe\b|\bside by side\b|\bhow (much )?(has|have|did) .* change|\b(shrink(s|ing)?|shrunk(en)?|shrank|retreat(s|ing|ed)?|disappear(s|ing|ed)?|dr(ying|ied) up|recover(ed|ing|y)?|regrow\w*|expand(s|ing|ed)?)\b|\bgrowing\b(?! season)|\b(hotter|colder|warmer|cooler|wetter|drier|greener|browner|bigger|smaller|worse|better) than\b/i],
   ['time-slider', /\beach year\b|\bevery year\b|\b(?:each|every) (?:spring|summer|fall|autumn|winter|season|growing season)\b|\byear by year\b|\bmonth by month\b|\bslider\b|\banimat\w*|\bstep through\b|\bper year\b|\byearly\b|\bover the years\b/i],
   ['click-chart', /\bclick\b|\bhistory\b|\bover time\b|\btime ?series\b|\btrends?\b|\bchart\b|\bthrough the (year|season)\b/i],
   ['region-stats', /\bhow (much|many)\b|\bpercent(age)?\b|\bshare of\b|\bacres\b|\bhectares\b|\bstat(istic)?s\b|\baverage\b|\btotal area\b|\bsummar(y|ize)\b/i],
@@ -218,6 +220,8 @@ interface ParsedTime {
   range: [number, number] | null;
   months: { m: number; y: number }[];
   relative: 'this' | 'last' | null;
+  /** "right now", "currently": the latest few weeks rather than a season. */
+  now: boolean;
 }
 
 function parseYears(text: string, now: Date): ParsedTime {
@@ -226,7 +230,7 @@ function parseYears(text: string, now: Date): ParsedTime {
     const n = Number(yy);
     return String(n <= now.getUTCFullYear() % 100 ? 2000 + n : 1900 + n);
   });
-  const out: ParsedTime = { years: [], since: null, range: null, months: [], relative: null };
+  const out: ParsedTime = { years: [], since: null, range: null, months: [], relative: null, now: false };
   const sinceM =
     /\b(?:since|from|after) (1[89]\d\d|20\d\d)\b(?! ?(?:to|-|–|and|through|until) ?(?:1[89]|20)\d\d)/.exec(t) ??
     /\b(1[89]\d\d|20\d\d) ?(?:-|–|to|until|through|till) ?(?:now|present|today|current|this year)\b/.exec(t) ??
@@ -246,9 +250,17 @@ function parseYears(text: string, now: Date): ParsedTime {
   if (/\b(?:past|last) decade\b/.test(t) && !out.range && !out.since) out.since = now.getUTCFullYear() - 10;
   const monthRe = new RegExp(`\\b${MONTH_RE}\\.? (1[89]\\d\\d|20\\d\\d)\\b`, 'gi');
   for (const m of t.matchAll(monthRe)) out.months.push({ m: monthIndex(m[1]), y: Number(m[2]) });
+  // "in July" with no year: the most recent July that has ended (or this one, once it's half over).
+  const bareMonth = new RegExp(`\\b(?:in|during|of|early|late|mid|last|this) ${MONTH_RE}\\b(?!\\.? ?(?:1[89]|20)\\d\\d)`, 'i').exec(t);
+  if (bareMonth && !out.months.length && !/\b(1[89]\d\d|20\d\d)\b/.test(t)) {
+    const m = monthIndex(bareMonth[1]);
+    const y = now.getUTCFullYear();
+    out.months.push({ m, y: m < now.getUTCMonth() + 1 || (m === now.getUTCMonth() + 1 && now.getUTCDate() >= 15) ? y : y - 1 });
+  }
   for (const m of t.matchAll(/\b(1[89]\d\d|20\d\d)\b/g)) out.years.push(Number(m[1]));
   if (/\bthis (year|summer|winter|spring|fall|season)\b/.test(t)) out.relative = 'this';
   if (/\blast (year|summer|winter|spring|fall|season)\b/.test(t)) out.relative = 'last';
+  out.now = /\b(right now|currently|at the moment|these days|this week|this month|today|latest|most recent|now)\b/.test(t);
   const y = now.getUTCFullYear();
   out.years = out.years.filter((v) => v <= y);
   return out;
@@ -263,6 +275,11 @@ export function parseTime(
   const season = detectSeason(text, theme);
   const s = season ?? defaultSeason(theme);
   const p = parseYears(text, now);
+  // "Snowpack in 2023" is the winter that ended in 2023, unless the text names both years ("2022-23").
+  if (s === 'winter' && !/\b(1[89]|20)\d\d ?[-–/] ?\d\d\b(?!\d)/.test(text)) {
+    p.years = p.years.map((v) => v - 1);
+    if (p.range) p.range = [p.range[0] - 1, p.range[1] - 1];
+  }
   const thisYear = now.getUTCFullYear();
   const latest = latestSeasonYear(s, now);
   const today = now.toISOString().slice(0, 10);
@@ -317,6 +334,9 @@ export function parseTime(
   if (p.months.length === 1) {
     return { time: { kind: 'snapshot', window: clampEnd(monthWindow(p.months[0].m, p.months[0].y), now) }, season };
   }
+  if (p.now && !p.years.length && !p.relative && !/\b(winter|spring|summer|fall|autumn|growing season)\b/i.test(text)) {
+    return { time: { kind: 'snapshot', window: { label: 'The last 45 days', start: addDays(today, -45), end: today } }, season };
+  }
   const y = p.years.length === 1 ? p.years[0] : latest;
   return { time: { kind: 'snapshot', window: clampEnd(seasonWindow(s, y), now) }, season };
 }
@@ -370,6 +390,8 @@ const NOT_PLACE = new Set(
   effect effects impact impacts affect affected cause caused due because result results across-the
   difference differences different same similar compare-to whole entire overall full part parts half
   hi hey hello thanks thank cool okay ok yeah yes no not don't dont doesn't didn't isn't wasn't
+  right moment lose loses losing gets getting got become became snowing raining pouring freezing
+  lst lat lon lng long latitude longitude coordinates coords
   underwater flooded-out submerged
   warmed cooled dried dry rose risen fell fallen dropped spread spreading covers covered covering affected moved
   hit struck destroyed damaged damage recovered recovery hurricane storm tornado earthquake event events
@@ -395,6 +417,12 @@ const PREPOSITIONS = new Set(['in', 'for', 'around', 'near', 'across', 'over', '
 
 /** "42.44, -76.50" or "42.44N 76.50W" -> "42.44000, -76.50000". */
 export function parseCoords(text: string): string | null {
+  const named = /\blat(?:itude)?\.?\s*:?\s*(-?\d{1,2}(?:\.\d+)?)\s*,?\s*(?:lon|lng|long)(?:gitude)?\.?\s*:?\s*(-?\d{1,3}(?:\.\d+)?)/i.exec(text);
+  if (named) {
+    const lat = Number(named[1]);
+    const lon = Number(named[2]);
+    return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? `${lat.toFixed(5)}, ${lon.toFixed(5)}` : null;
+  }
   const dec =
     /(-?\d{1,2}\.\d+)\s*°?\s*([ns])?\s*,?\s+(-?\d{1,3}\.\d+)\s*°?\s*([ew])?/i.exec(text) ??
     /(-?\d{1,2}\.\d+)\s*°?\s*([ns])?\s*,\s*(-?\d{1,3}\.\d+)\s*°?\s*([ew])?/i.exec(text) ??
@@ -472,7 +500,9 @@ export function placeCandidates(text: string): PlaceCandidate[] {
     }
     // A run that is only place nouns ("lakes", "forest") is a theme word, not a place.
     if (words.every((t) => PLACE_NOUNS.has(t.word) || JOINERS.has(t.word))) continue;
-    while (words.length && JOINERS.has(words[0].word)) words = words.slice(1);
+    // "San Diego", "St Louis", "El Paso": name particles can lead a place; "of" and "the" can't.
+    while (words.length && ['of', 'the', 'and', 'on', 'upon'].includes(words[0].word)) words = words.slice(1);
+    while (words.length > 1 && JOINERS.has(words[0].word) && JOINERS.has(words[1].word)) words = words.slice(1);
     while (words.length && JOINERS.has(words[words.length - 1].word)) words = words.slice(0, -1);
     if (!words.length) continue;
     const phrase = words.map((t, k) => t.raw + (t.comma && k < words.length - 1 ? ',' : '')).join(' ');
@@ -542,7 +572,8 @@ export function parseGoal(text: string, now: Date = new Date()): Intent {
   if (ev && !namesMonth && (!/\b(18|19|20)\d\d\b/.test(text) || new RegExp(`\\b${evYear}\\b`).test(text))) {
     const [y, m] = ev.month.split('-').map(Number);
     const month = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
-    text = `${text} before and after ${month} ${y}`;
+    // Rain during a storm is that month's total; everything else is a before and after.
+    text = /\b(rain\w*|precip\w*)\b/i.test(text) ? `${text} in ${month} ${y}` : `${text} before and after ${month} ${y}`;
   }
   let theme: Theme = 'vegetation';
   for (const [t, re] of THEME_CUES) {

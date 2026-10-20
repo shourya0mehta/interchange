@@ -101,6 +101,10 @@ export const TABLE: Record<string, Bbox> = {
   'yolo county': [-122.42, 38.31, -121.5, 38.93],
   'the everglades': [-81.6, 25, -80.2, 26.7],
   'lake okeechobee': [-81.13, 26.68, -80.6, 27.21],
+  'death valley': [-117.4, 35.6, -116.3, 37.0],
+  brazil: [-73.99, -33.75, -34.79, 5.27],
+  'el paso texas': [-106.63, 31.62, -106.2, 31.98],
+  'st louis': [-90.32, 38.53, -90.17, 38.77],
 };
 
 export function tableGeo(phrase: string): Place | null {

@@ -49,3 +49,14 @@ The read-back looks the place up as you type. Nominatim's usage policy rules out
 
 ## Light, printed transit design
 Black signage band, cool paper, Overpass (drawn from Highway Gothic), one color per Earth sphere. See DESIGN.md.
+
+## A lookup outage is said at once
+When Nominatim and Photon both fail outright (an HTTP error or no answer, as opposed to "no such place"), planning stops and says the lookup isn't answering, with Pick it on the map and Try again. It used to wait a second and retry first, which left the page silent.
+
+## Everyday phrasing rules
+- "San Diego", "St Louis", "El Paso": name particles can lead a place; only "of", "the" and "and" are trimmed from the front.
+- "Snowpack in 2023" means the winter that ended in 2023. A bare year on a winter question moves back one, unless both years are written ("2022-23").
+- "Right now", "currently", "today": the last 45 days instead of a season.
+- "In July" with no year: the latest July that has ended.
+- "Shrinking", "retreating", "drying up", "hotter than": a before and after, six years apart when no years are given.
+- Rain during a named storm is that month's total; other storm questions are a before and after.

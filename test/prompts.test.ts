@@ -49,6 +49,8 @@ const CASES: Case[] = [
   { q: 'where did fires burn in california in 2020', place: 'california', theme: 'fire', top: 'active-fire', signal: 'fire-frequency' },
   { q: 'active fires in australia december 2019', place: 'australia', theme: 'fire', top: 'active-fire' },
   { q: 'wildfire hotspots near los angeles january 2025', place: 'los angeles', theme: 'fire', top: 'active-fire' },
+  { q: 'how hot does phoenix get in july', place: 'phoenix', theme: 'heat', top: 'modis-lst' },
+  { q: 'how cold was minnesota in january 2019', place: 'minnesota', theme: 'heat' },
   { q: 'lahaina fire damage', place: 'lahaina, hawaii', theme: 'fire', top: 'sentinel-2', time: 'compare' },
   { q: 'fire season in colorado 2020', place: 'colorado', theme: 'fire', top: 'active-fire' },
 
@@ -121,6 +123,20 @@ const CASES: Case[] = [
   { q: 'ocean temps in the caribbean', place: 'caribbean sea', theme: 'ocean', top: 'oisst' },
   { q: 'rainfall in the midwest 2012 vs 2019', place: 'us midwest', theme: 'rain', top: 'nclimgrid' },
   { q: 'land surface temperature across the western us summer 2021', place: 'western us', theme: 'heat', top: 'modis-lst' },
+  // ---- Phrasings found by a second sweep (Oct 19) ---------------------------------------
+  { q: 'how hot does death valley get in july', place: 'death valley', theme: 'heat', top: 'modis-lst', time: 'snapshot' },
+  { q: 'is the great salt lake shrinking', place: 'great salt lake', theme: 'water', time: 'compare', view: 'swipe' },
+  { q: 'where is it snowing in colorado right now', place: 'colorado', theme: 'snow', time: 'snapshot' },
+  { q: 'how much forest did brazil lose since 2000', place: 'brazil', theme: 'forest-loss' },
+  { q: 'how much did it rain in houston during harvey', place: 'houston', theme: 'rain', top: 'nclimgrid', time: 'snapshot' },
+  { q: 'ocean temperature off san diego this year', place: 'san diego', theme: 'ocean', top: 'oisst' },
+  { q: 'was 2024 hotter than 2023 in phoenix', place: 'phoenix', theme: 'heat', top: 'modis-lst', time: 'compare' },
+  { q: 'how dry was the corn belt in 2012', place: 'corn belt', theme: 'soil-moisture', top: 'nclimgrid' },
+  { q: 'snowpack in the rockies 2023 vs 2022', place: 'rocky mountains', theme: 'snow', top: 'modis-snow', time: 'compare' },
+  { q: 'lst los angeles summer 2024', place: 'los angeles', theme: 'heat', top: 'modis-lst' },
+  { q: 'greenness at lat 36.7 lon -119.8 in 2024', place: '36.70000, -119.80000', theme: 'vegetation', top: 'sentinel-2' },
+  { q: 'temperature in el paso texas last summer', place: 'el paso texas', theme: 'heat' },
+  { q: 'st louis flooding 2019', place: 'st louis', theme: 'flood', top: 'sentinel-1' },
 ];
 
 describe('prompt bank', () => {

@@ -84,7 +84,7 @@ npm test               # unit tests, planner, gallery test
 INTEGRATION=1 npm test # also reads real data from Earth Search and Planetary Computer
 npm run build && npx vite preview --port 4173 &
 npm run smoke          # headless browser walkthrough with screenshots in shots/
-node scripts/prompts-live.mjs   # 36 real questions, built and checked twice each
+node scripts/prompts-live.mjs   # 46 real questions, built and checked twice each
 ```
 
 ## Data and credits

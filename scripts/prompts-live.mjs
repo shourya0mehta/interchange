@@ -63,6 +63,17 @@ const PROMPTS = [
   { q: 'snow at 39.1N 120.2W last winter', via: 'Sentinel-2' },
   { q: "Fresno County field greenness: summer '19 vs summer '25", via: 'Sentinel-2' },
   { q: 'water temp of the ocean near cape cod since 2010', via: 'OISST' },
+  // A second sweep of everyday phrasings
+  { q: 'how hot does death valley get in july', via: 'MODIS' },
+  { q: 'is the great salt lake shrinking', via: 'Sentinel-2' },
+  { q: 'ocean temperature off san diego this year', via: 'OISST' },
+  { q: 'was 2024 hotter than 2023 in phoenix', via: 'MODIS' },
+  { q: 'how much did it rain in houston during harvey', via: 'NClimGrid' },
+  { q: 'greenness of the amazon rainforest 2001 vs 2024', via: 'MODIS' },
+  { q: 'lahaina fire damage', via: 'Sentinel-2' },
+  { q: 'st louis flooding 2019', via: 'Sentinel-1' },
+  { q: 'corn and soybeans in mclean county illinois 2021', via: 'Cropland' },
+  { q: 'where is it snowing in colorado right now', via: 'MODIS snow' },
 ];
 
 const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader', '--ignore-gpu-blocklist'] });

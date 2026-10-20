@@ -1367,3 +1367,12 @@ a.btn {
 .follow-tips {
   animation: fade-in var(--motion-md) var(--ease-enter);
 }
+
+/* Exported images print in under the scan line. */
+.image-preview {
+  position: relative;
+}
+.print .downlink-mask {
+  background: var(--fog);
+  animation-duration: 640ms;
+}

@@ -21,6 +21,8 @@ const PROMPTS = [
   { q: 'Compare greenness of fields in Fresno County, California in summer 2019 vs summer 2025', via: 'Sentinel-2', then: { say: 'compare with 2010 instead', via: 'Landsat' } },
   { q: 'ndvi near ithaca ny 2024', via: 'Sentinel-2', then: { say: 'zoom out', via: 'Sentinel-2' } },
   { q: 'Burn severity in Paradise, California before and after November 2018', via: 'Sentinel-2' },
+  { q: 'Burn scar from the Camp Fire in Paradise, California', via: 'Sentinel-2' },
+  { q: 'eaton fire altadena', via: 'Sentinel-2' },
   { q: 'what does the salton sea look like now', via: 'Sentinel-2' },
   { q: 'greenness at 42.44, -76.50 summer 2025', via: 'Sentinel-2', chart: true },
   // Landsat
@@ -29,6 +31,8 @@ const PROMPTS = [
   // Sentinel-1
   { q: 'Map flooding in Houston before and after August 2017', via: 'Sentinel-1' },
   { q: 'flooding from hurricane harvey', via: 'Sentinel-1' },
+  { q: 'flooding in asheville after hurricane helene', via: 'Sentinel-1' },
+  { q: 'pakistan floods', via: 'Sentinel-1' },
   // MODIS NDVI
   { q: 'vegetation health in iowa since 2015', via: 'MODIS', chart: true },
   { q: 'greenness across the united states this summer', via: 'MODIS' },

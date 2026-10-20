@@ -168,6 +168,12 @@ function ImagePanel({ spec, apiRef }: { spec: AppSpec; apiRef: MutableRefObject<
       </div>
       <div className="image-preview" data-state={state}>
         {preview && <img src={preview.url} alt={`Preview of the image: ${spec.title}`} />}
+        {preview && (
+          // The picture prints in under the scan line, like the map's own pixels.
+          <div className="downlink print" key={preview.url} aria-hidden="true">
+            <div className="downlink-mask" />
+          </div>
+        )}
         {state === 'drawing' && <span className="hint">Drawing</span>}
         {state === 'error' && <span className="error">Couldn't draw the image. Wait for the map to finish loading, then try again.</span>}
       </div>
@@ -199,6 +205,9 @@ function GifMaker({ spec, apiRef }: { spec: AppSpec; apiRef: MutableRefObject<Ap
       {state.k === 'ready' && (
         <div className="image-preview">
           <img src={state.url} alt={`Animated preview: ${spec.title}`} />
+          <div className="downlink print" aria-hidden="true">
+            <div className="downlink-mask" />
+          </div>
         </div>
       )}
       {state.k === 'drawing' && (

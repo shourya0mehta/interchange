@@ -130,6 +130,17 @@ await waitIdle(emb);
 await emb.waitForTimeout(1500);
 await emb.screenshot({ path: `${OUT}/6-embed.png` });
 ok('embed shows the map with its credit', (await emb.locator('.embed-credit').innerText()).includes('Landsat'));
+// The newsroom's Harvey app: radar from the day before and just after the flooding, opening on the change.
+const flood = await ctx.newPage();
+watch(flood);
+await flood.goto(BASE);
+const harveyHref = await flood.getByRole('link', { name: 'Open this app' }).first().getAttribute('href');
+await flood.goto(new URL(harveyHref, BASE).href);
+await flood.waitForSelector('.app');
+await flood.waitForSelector('text=/This view uses/', { timeout: 150_000 });
+const floodText = await flood.locator('.app').innerText();
+ok('Harvey app opens on the change, after the storm', floodText.includes('likely new water') && floodText.includes('2017-08-29'));
+await flood.close();
 
 // Cover crops: time slider + click-for-history.
 async function fresh(q) {

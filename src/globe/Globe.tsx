@@ -149,7 +149,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
       return;
     }
     const span = focus.bbox ? Math.max(focus.bbox[2] - focus.bbox[0], focus.bbox[3] - focus.bbox[1]) : 10;
-    const zoom = Math.max(1, Math.min(1.45, 60 / Math.max(span, 20)));
+    const zoom = 1;
     v.target = { lon: focus.lon, lat: Math.max(-60, Math.min(60, focus.lat)), zoom, t0: performance.now(), from: { lon: v.lon, lat: v.lat, zoom: v.zoom } };
     v.vLon = 0;
     v.vLat = 0;
@@ -332,7 +332,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
           }
           const inBox = box && latD >= box[1] && latD <= box[3] && lonD >= box[0] && lonD <= box[2];
           let alpha = 0.32 + 0.68 * Math.pow(g.light, 0.6);
-          if (emph && !emph.includes(s.group)) alpha *= 0.28;
+          if (emph && !emph.includes(s.group)) alpha *= 0.5;
           let bold = false;
           if (fresh > 0) {
             alpha = Math.min(1, alpha + 0.5 * fresh);

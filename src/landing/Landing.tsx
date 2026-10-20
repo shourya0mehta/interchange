@@ -1,30 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
-import { compileRoute, encodeSpec } from '../compiler/spec';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { compileRoute, encodeSpec, type AppSpec } from '../compiler/spec';
+import { creditLine } from '../compiler/credit';
 import { LINE_BY_ID, STATIONS, STATION_BY_ID } from '../network/network';
 import { parseGoal } from '../planner/intent';
 import { planRoutes, type Place } from '../planner/plan';
+import { Globe } from '../globe/Globe';
+import { INK } from '../globe/Globe';
 import { BrandMark } from '../ui/BrandMark';
 import { Dossier } from '../ui/Dossier';
 import { MapKey, NetworkMap, shortName } from '../ui/NetworkMap';
 import { ReadBackSign } from '../ui/ReadBackSign';
-import { RouteStrip } from '../ui/RouteStrip';
+import { SplitFlap } from '../ui/SplitFlap';
+import { globeProps } from '../ui/AskBox';
 import { useLiveIntent } from '../ui/readback';
-import { HeroMap } from './HeroMap';
 
 const REPO = 'https://github.com/shourya0mehta/interchange';
 const base = () => `${location.origin}${location.pathname}`;
 
-/** Questions the hero types for itself until someone starts typing. Places are fixed, so no lookups. */
+/** Questions the hero asks itself until someone starts typing. Places are fixed, so no lookups. */
 const DEMO: { q: string; place: Place }[] = [
   { q: 'sea surface temperature in the north atlantic since 1999', place: { name: 'North Atlantic Ocean', bbox: [-82, 0, 0, 66] } },
   { q: 'compare greenness of fields in fresno county, summer 2019 vs 2025', place: { name: 'Fresno County, California', bbox: [-120.92, 35.9, -118.36, 37.59] } },
-  { q: 'what crops grew around ames, iowa in 2021', place: { name: 'Ames, Iowa', bbox: [-93.75, 41.95, -93.5, 42.1] } },
   { q: 'flooding in houston before and after hurricane harvey', place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] } },
-  { q: 'snow cover in the sierra nevada each winter since 2018', place: { name: 'Sierra Nevada', bbox: [-121.5, 35.4, -117.8, 40.3] } },
-  { q: 'urban heat island in phoenix, summer 2025', place: { name: 'Phoenix, Arizona', bbox: [-112.32, 33.29, -111.93, 33.92] } },
+  { q: 'snow cover in the alps each winter since 2018', place: { name: 'Alps', bbox: [5.5, 43.8, 16.5, 48.2] } },
+  { q: 'where did fires burn in the amazon in 2019', place: { name: 'Amazon rainforest', bbox: [-74, -16, -46, 4] } },
+  { q: 'urban heat island in delhi, summer 2025', place: { name: 'Delhi, India', bbox: [76.84, 28.4, 77.35, 28.88] } },
 ];
 
-/** Real apps for the departures board, each compiled here and opened from its link. */
+/** Real apps for the departures board, compiled here and opened from their links. */
 const DEPARTURES: { q: string; place: Place }[] = [
   { q: 'Compare greenness of fields in Fresno County, summer 2019 vs summer 2025', place: { name: 'Fresno County, California', bbox: [-120.92, 35.9, -118.36, 37.59] } },
   { q: 'Sea surface temperature in the North Atlantic since 1999', place: { name: 'North Atlantic Ocean', bbox: [-82, 0, 0, 66] } },
@@ -37,31 +40,49 @@ const DEPARTURES: { q: string; place: Place }[] = [
   { q: 'Land cover in Rondônia, Brazil, 1995 vs 2020', place: { name: 'Rondônia, Brazil', bbox: [-66.8, -13.7, -59.8, -7.97] } },
 ];
 
+/** The three jobs Interchange is built for, each with a real app behind it. */
+const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; place: Place; shot: string; alt: string; notes?: string; questions?: string[] }[] = [
+  {
+    id: 'newsroom',
+    who: 'Newsrooms',
+    job: 'A satellite map for today’s story, without a GIS desk.',
+    gets: ['An embed for the article, sized for phones', 'The credit line in each provider’s own wording', 'A methods note you can paste under the map', 'A 16:9 or square image for social'],
+    q: 'Map flooding in Houston before and after Hurricane Harvey',
+    place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] },
+    shot: 'use-newsroom.jpg',
+    alt: 'A news article with an embedded Interchange map of Houston flooding, before and after Hurricane Harvey',
+    notes: 'Dark areas east of downtown are standing water seen by radar through the storm clouds.',
+  },
+  {
+    id: 'classroom',
+    who: 'Classrooms',
+    job: 'A live link students open and investigate, with no accounts and nothing to install.',
+    gets: ['Questions to explore, shown beside the map', 'Click anywhere for that spot’s history', 'CSV that opens in Sheets', 'Every step explained in plain words'],
+    q: 'Snow cover in the Sierra Nevada, winter 2021 vs winter 2023',
+    place: { name: 'Sierra Nevada', bbox: [-121.5, 35.4, -117.8, 40.3] },
+    shot: 'use-classroom.jpg',
+    alt: 'A published Interchange app comparing Sierra Nevada snow cover in two winters, with questions for students',
+    questions: ['Which side of the range kept snow longer in 2023?', 'Why might the same mountains look so different two years apart?'],
+  },
+  {
+    id: 'field',
+    who: 'Field offices',
+    job: 'This season against past ones, county by county, ready for a slide or a newsletter.',
+    gets: ['Field-level greenness back to 1984', 'Crop types by field across the US', 'Area totals for the county', 'A slide image with legend and credit'],
+    q: 'Compare greenness of fields in Fresno County, summer 2019 vs summer 2025',
+    place: { name: 'Fresno County, California', bbox: [-120.92, 35.9, -118.36, 37.59] },
+    shot: 'use-field.jpg',
+    alt: 'A slide image exported from Interchange: Fresno County greenness in summer 2010 and summer 2025, side by side, with a legend and credit line',
+  },
+];
+
 const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Types example questions into the hero's placeholder until the visitor takes over. */
-function useDemo(active: boolean): number {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    if (!active || reducedMotion()) return;
-    const t = setInterval(() => setI((n) => (n + 1) % DEMO.length), 4200);
-    return () => clearInterval(t);
-  }, [active]);
-  return i;
-}
-
-function useTyped(text: string, active: boolean): string {
-  const [n, setN] = useState(text.length);
-  useEffect(() => {
-    if (!active || reducedMotion()) {
-      setN(text.length);
-      return;
-    }
-    setN(0);
-    const t = setInterval(() => setN((k) => (k >= text.length ? k : k + 1)), 26);
-    return () => clearInterval(t);
-  }, [text, active]);
-  return text.slice(0, n);
+function compile(q: string, place: Place, extra?: Partial<AppSpec>): AppSpec | null {
+  const plan = planRoutes(parseGoal(q), place);
+  const route = plan.routes.find((r) => r.runs === 'live');
+  const spec = route ? compileRoute(route, q).spec : null;
+  return spec ? { ...spec, ...extra } : null;
 }
 
 function departures() {
@@ -70,39 +91,74 @@ function departures() {
     const route = plan.routes.find((r) => r.runs === 'live');
     const spec = route ? compileRoute(route, d.q).spec : null;
     const st = route ? STATION_BY_ID[route.station] : null;
-    const shows = route?.views.includes('swipe')
-      ? 'Swipe'
-      : route?.views.includes('time-slider')
-        ? 'Slider'
-        : route?.views.includes('click-chart')
-          ? 'History chart'
-          : route?.views.includes('region-stats')
-            ? 'Area totals'
-            : 'Map';
-    return { ...d, route, spec, st, shows, when: route?.when ?? '' };
+    const shows = route?.views.includes('swipe') ? 'Swipe' : route?.views.includes('time-slider') ? 'Slider' : route?.views.includes('click-chart') ? 'History' : route?.views.includes('region-stats') ? 'Totals' : 'Map';
+    return { ...d, spec, st, shows };
   }).filter((d) => d.spec && d.st);
 }
+
+/** Cycles the demo questions, typing each into the placeholder, until the visitor takes over. */
+function useDemo(active: boolean) {
+  const [i, setI] = useState(0);
+  const [n, setN] = useState(DEMO[0].q.length);
+  useEffect(() => {
+    if (!active || reducedMotion()) {
+      setN(DEMO[i].q.length);
+      return;
+    }
+    setN(0);
+    const type = setInterval(() => setN((k) => Math.min(DEMO[i].q.length, k + 1)), 28);
+    const next = setTimeout(() => setI((k) => (k + 1) % DEMO.length), 5600);
+    return () => {
+      clearInterval(type);
+      clearTimeout(next);
+    };
+  }, [active, i]);
+  return { demo: DEMO[i], typed: DEMO[i].q.slice(0, n) };
+}
+
+/** Plays its animation once, when it first scrolls into view. */
+function useInView<T extends Element>(): [React.RefObject<T | null>, boolean] {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || seen) return;
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setSeen(true), { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+  return [ref, seen];
+}
+
+const GLYPH_KEY: [string, string, string][] = [
+  ['=', INK.crop, 'cropland'],
+  ['#', INK.forest, 'forest'],
+  [';', INK.grass, 'grass and shrub'],
+  [':', INK.bare, 'desert'],
+  ['@', INK.built, 'cities'],
+  ['*', INK.snow, 'ice'],
+  ['~', '#CE4A2C', 'warm sea'],
+  ['.', '#354E96', 'cold sea'],
+];
 
 export function Landing() {
   const [goal, setGoal] = useState('');
   const [focused, setFocused] = useState(false);
   const [dossier, setDossier] = useState<string | null>(null);
+  const [hover, setHover] = useState('');
+  const [job, setJob] = useState(JOBS[0].id);
   const demoOn = !goal && !focused;
-  const demoIdx = useDemo(demoOn);
-  const demo = DEMO[demoIdx];
-  const typed = useTyped(demo.q, demoOn);
-  const effective = goal || demo.q;
-  const live = useLiveIntent(effective, goal ? null : demo.place);
-  const back = live.back;
-  const primary = back?.via?.id ?? null;
-  const color = back?.via?.color ?? '#000';
+  const { demo, typed } = useDemo(demoOn);
+  const live = useLiveIntent(goal || demo.q, goal ? null : demo.place);
+  const g = globeProps(live.intent, live.back, live.place);
   const deps = useMemo(departures, []);
+  const jobs = useMemo(() => JOBS.map((j) => ({ ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions }) })), []);
   const liveCount = STATIONS.filter((s) => s.live).length;
-  const exportCount = STATIONS.length - liveCount;
-  const sampleRoute = deps[0]?.route ?? null;
+  const [howRef, howSeen] = useInView<HTMLOListElement>();
+  const active = jobs.find((j) => j.id === job)!;
 
   useEffect(() => {
-    document.title = 'Interchange: satellite map apps from a sentence';
+    document.title = 'Interchange: satellite maps from a sentence';
   }, []);
 
   const build = (q: string) => {
@@ -110,40 +166,41 @@ export function Landing() {
   };
 
   return (
-    <div className="landing">
-      <header className="band landing-band">
+    <div className="home">
+      <header className="band home-band">
         <a className="brand" href="#" aria-label="Interchange, home">
           <BrandMark />
           <span>Interchange</span>
         </a>
-        <nav className="landing-nav" aria-label="Site">
+        <nav className="home-nav" aria-label="Site">
+          <a href="#who">Who it’s for</a>
           <a href="#how">How it works</a>
           <a href="#departures">Examples</a>
           <a href="#network">Datasets</a>
           <a href={REPO}>GitHub</a>
         </nav>
-        <a className="btn" href="#build">
-          Open the builder
+        <a className="btn btn-signal" href="#build">
+          Open the studio
         </a>
       </header>
 
       <main>
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-copy">
-            <h1 id="hero-title">Every dataset is a station. Your question is the route.</h1>
-            <p className="hero-sub">
-              Type what you want to see and where. Interchange picks the satellites, lays out every step in the open, and builds a live map app anyone can open from a
-              link. You don't write code or make an account.
+        <section className="home-hero" aria-labelledby="hero-title">
+          <div className="home-hero-copy">
+            <h1 id="hero-title">Ask the planet. Publish the map.</h1>
+            <p className="home-sub">
+              Type what you want to see and where. Interchange picks the satellite, builds a live map, and writes the credit line. Share it as a link, an embed or a slide. No code, no
+              account.
             </p>
             <form
-              className="hero-ask"
+              className="home-ask"
               onSubmit={(e) => {
                 e.preventDefault();
                 build(goal || demo.q);
               }}
             >
               <label className="sr-only" htmlFor="hero-goal">
-                What do you want to see, and where?
+                What should the map show, and where?
               </label>
               <input
                 id="hero-goal"
@@ -151,74 +208,175 @@ export function Landing() {
                 onChange={(e) => setGoal(e.target.value)}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
-                placeholder={demoOn ? typed : 'What do you want to see, and where?'}
+                placeholder={demoOn ? typed : 'What should the map show, and where?'}
                 autoComplete="off"
               />
-              <button className="btn btn-primary" type="submit">
-                Build this map
+              <button className="btn btn-primary btn-go" type="submit">
+                <span>Build this map</span>
               </button>
             </form>
-            <ReadBackSign back={back} status={live.status} idPrefix="hero" layout="compact" />
+            <ReadBackSign back={live.back} status={live.status} idPrefix="hero" layout="compact" />
           </div>
-          <div className="hero-figure">
-            <HeroMap lit={back?.stations ?? []} primary={primary} shows={back?.shows ?? ''} color={color} />
+          <figure className="home-globe">
+            <Globe
+              {...g}
+              cell={9}
+              onHover={(h) => setHover(h ? `${h.text}. ${h.where}` : '')}
+              onPick={(lat, lon) => {
+                setGoal(`Greenness near ${lat.toFixed(2)}, ${lon.toFixed(2)} this summer`);
+              }}
+            />
+            <figcaption>
+              <span className="globe-readout" aria-live="off">
+                {hover || 'Every character is a measurement. Drag to turn the planet; click a spot to ask about it.'}
+              </span>
+              <span className="glyph-key" aria-label="Key">
+                {GLYPH_KEY.map(([ch, color, label]) => (
+                  <span key={label}>
+                    <b style={{ color }} aria-hidden="true">
+                      {ch}
+                    </b>
+                    {label}
+                  </span>
+                ))}
+              </span>
+              <span className="globe-credit">Land: ESA CCI land cover 2020. Sea: NOAA OISST, October 3, 2026.</span>
+            </figcaption>
+          </figure>
+        </section>
+
+        <section className="jobs" id="who" aria-labelledby="jobs-title">
+          <div className="section-head">
+            <h2 id="jobs-title">Built for three jobs</h2>
+            <p>People who need a trustworthy satellite map this afternoon, not a geospatial pipeline. Each one below is a real app; open it and poke at it.</p>
+          </div>
+          <div className="jobs-grid">
+            <div className="jobs-list" role="tablist" aria-label="Who it's for" aria-orientation="vertical">
+              {jobs.map((j, i) => (
+                <button
+                  key={j.id}
+                  role="tab"
+                  id={`job-${j.id}`}
+                  aria-selected={job === j.id}
+                  aria-controls="job-panel"
+                  className="job-tab"
+                  onClick={() => setJob(j.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      const n = jobs[(i + (e.key === 'ArrowDown' ? 1 : jobs.length - 1)) % jobs.length];
+                      setJob(n.id);
+                      document.getElementById(`job-${n.id}`)?.focus();
+                    }
+                  }}
+                >
+                  <span className="job-who">{j.who}</span>
+                  <span className="job-job">{j.job}</span>
+                </button>
+              ))}
+            </div>
+            <div className="job-panel" id="job-panel" role="tabpanel" aria-labelledby={`job-${active.id}`} key={active.id}>
+              <div className={`job-figure job-figure-${active.id}`}>
+                {active.id === 'newsroom' && (
+                  <div className="mock-article" aria-hidden="true">
+                    <span className="mock-kicker">Weather</span>
+                    <span className="mock-head">Radar shows how far the water spread</span>
+                    <span className="mock-line" />
+                    <span className="mock-line short" />
+                  </div>
+                )}
+                <img src={`${import.meta.env.BASE_URL}shots/${active.shot}`} alt={active.alt} loading="lazy" />
+                {active.id === 'newsroom' && active.spec && <p className="mock-credit">{creditLine(active.spec)}</p>}
+              </div>
+              <div className="job-copy">
+                <ul className="job-gets">
+                  {active.gets.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+                <p className="job-q">“{active.q}”</p>
+                <div className="route-actions">
+                  {active.spec && (
+                    <a className="btn btn-primary" href={`${base()}#app=${encodeSpec(active.spec)}`}>
+                      <span>Open this app</span>
+                    </a>
+                  )}
+                  <a className="btn" href={`#build?q=${encodeURIComponent(active.q)}`}>
+                    Rebuild it in the studio
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
         <section className="how" id="how" aria-labelledby="how-title">
-          <h2 id="how-title">From a sentence to an app in three stops</h2>
-          <ol className="stops">
+          <div className="section-head">
+            <h2 id="how-title">A sentence in, a map out</h2>
+            <p>Like an app builder, but every step is a real dataset and a real method you can inspect.</p>
+          </div>
+          <ol className="how-steps" ref={howRef} data-seen={howSeen || undefined}>
             <li>
-              <div className="stop-text">
-                <h3>Ask</h3>
-                <p>
-                  Write it the way you'd say it: lowercase, misspelled, with a county, a lake, an ocean or a pair of coordinates. Before anything runs, Interchange reads back
-                  what it heard, so you can see a wrong guess and fix it.
-                </p>
-              </div>
-              <div className="stop-figure">
-                <ReadBackSign
-                  back={{ what: 'Ocean temperature', where: 'North Atlantic Ocean', when: '1999 to now', via: { id: 'oisst', name: 'Sea surface temp', line: 'hydrosphere', color: LINE_BY_ID.hydrosphere.color, live: true }, shows: 'Click for history', stations: [] }}
-                  status={{ state: 'found', place: { name: 'North Atlantic Ocean', bbox: [-82, 0, 0, 66] }, phrase: 'north atlantic' }}
-                  idPrefix="how"
-                  layout="compact"
-                />
+              <span className="how-n">1</span>
+              <h3>Say it plainly</h3>
+              <p>Lowercase, misspelled, a county, a lake, an ocean or coordinates. The sign reads back what it heard before anything runs.</p>
+              <div className="how-sign" aria-hidden="true">
+                <div>
+                  <small>Where</small>
+                  <SplitFlap text={howSeen ? 'GULF OF MEXICO' : '              '} />
+                </div>
+                <div>
+                  <small>When</small>
+                  <SplitFlap text={howSeen ? 'SUMMER 2026' : '           '} />
+                </div>
               </div>
             </li>
             <li>
-              <div className="stop-text">
-                <h3>Pick a route</h3>
-                <p>
-                  It lays out two or three routes through the observing system, each with its trade-offs: how much detail, how often it looks, how far back it goes, whether
-                  clouds get in the way. Every stop on a route can be swapped, and routes that can't work are refused before they run.
-                </p>
-              </div>
-              <div className="stop-figure stop-route" style={{ ['--route-color' as string]: sampleRoute ? LINE_BY_ID[STATION_BY_ID[sampleRoute.station].lines[0]].color : '#000' }}>
-                {sampleRoute && (
-                  <>
-                    <p className="stop-route-title">{sampleRoute.title}</p>
-                    <RouteStrip route={sampleRoute} active={null} animate={false} />
-                  </>
-                )}
+              <span className="how-n">2</span>
+              <h3>Watch it build</h3>
+              <p>It picks the dataset that covers your place and dates, then shows each step: the satellite, the dates, the method, the app.</p>
+              <ol className="how-log" aria-hidden="true">
+                <li style={{ ['--i' as string]: 0 }}>
+                  <b>Data</b> NOAA sea surface temperature
+                </li>
+                <li style={{ ['--i' as string]: 1 }}>
+                  <b>Dates</b> June 15 to August 31, 2026
+                </li>
+                <li style={{ ['--i' as string]: 2 }}>
+                  <b>App</b> map, legend, history on click
+                </li>
+              </ol>
+            </li>
+            <li>
+              <span className="how-n">3</span>
+              <h3>Ask for changes</h3>
+              <p>“Compare with 2010.” “Use Landsat.” “Zoom out.” Each request rebuilds the map, and every version stays one click away.</p>
+              <div className="how-chips" aria-hidden="true">
+                <span className="chip">Compare with 2010</span>
+                <span className="chip">Make it a slider by year</span>
+                <span className="chip">Zoom out</span>
               </div>
             </li>
             <li>
-              <div className="stop-text">
-                <h3>Share the app</h3>
-                <p>
-                  The route becomes a live map: swipe between two dates, step through the years, click any spot for its history, read area totals, download the data. Publishing
-                  is copying a link. The whole app lives in it, so there is no server to keep running.
-                </p>
-              </div>
-              <div className="stop-figure">
-                <img src={`${import.meta.env.BASE_URL}shots/app-swipe.jpg`} alt="A published app: Fresno County greenness, summer 2019 on the left and 2025 on the right, with a swipe handle between them" loading="lazy" width={1440} height={900} />
+              <span className="how-n">4</span>
+              <h3>Publish</h3>
+              <p>A link that holds the whole app, an embed with the credit line, or an image for a slide. Nothing to host, nothing to log in to.</p>
+              <div className="how-ticket" aria-hidden="true">
+                <span>Link</span>
+                <span>Embed</span>
+                <span>Image</span>
               </div>
             </li>
           </ol>
+          <div className="route-actions how-cta">
+            <a className="btn btn-primary" href="#build">
+              <span>Open the studio</span>
+            </a>
+          </div>
         </section>
 
         <section className="departures" id="departures" aria-labelledby="dep-title">
-          <div className="departures-head">
+          <div className="section-head">
             <h2 id="dep-title">Departures</h2>
             <p>Real apps, each one a link. The data loads live from open catalogs when you open it, so give a big area a few seconds.</p>
           </div>
@@ -226,7 +384,7 @@ export function Landing() {
             <thead>
               <tr>
                 <th scope="col">To</th>
-                <th scope="col">Line</th>
+                <th scope="col">Via</th>
                 <th scope="col">Question</th>
                 <th scope="col">Shows</th>
               </tr>
@@ -251,15 +409,14 @@ export function Landing() {
 
         <section className="network-section" id="network" aria-labelledby="net-title">
           <div className="section-head">
-            <h2 id="net-title">The network</h2>
+            <h2 id="net-title">Every dataset is a station</h2>
             <p>
-              {STATIONS.length} datasets on five lines, one for each part of the Earth system. {liveCount} run live in your browser, read straight from open cloud storage.
-              The other {exportCount} are on the map so you can see what exists; routes through them end in an Earth Engine script. Tap a station to see what it measures and
-              what it's bad at.
+              {STATIONS.length} datasets on five lines, one for each part of the Earth system. {liveCount} run live in your browser, read straight from open cloud storage. The rest are on
+              the map so you can see what exists; routes through them end in an Earth Engine script. Tap a station to see what it measures and what it’s bad at.
             </p>
           </div>
           <div className="network-scroll">
-            <NetworkMap selected={dossier} highlight={[]} onSelect={setDossier} />
+            <NetworkMap selected={dossier} highlight={live.back?.stations ?? []} onSelect={setDossier} />
           </div>
           <MapKey />
           {dossier && (
@@ -275,8 +432,8 @@ export function Landing() {
 
         <section className="compare" aria-labelledby="compare-title">
           <div className="section-head">
-            <h2 id="compare-title">Why not Earth Engine's App Builder?</h2>
-            <p>Earth Engine is the right tool for heavy analysis, and Interchange exports to it. For a map app that answers one question, the trade-offs look like this.</p>
+            <h2 id="compare-title">Why not Earth Engine’s App Builder?</h2>
+            <p>Earth Engine is the right tool for heavy analysis, and Interchange writes the script for it. For a map that answers one question, the trade-offs look like this.</p>
           </div>
           <table className="compare-table">
             <thead>
@@ -292,22 +449,22 @@ export function Landing() {
               <tr>
                 <th scope="row">How you build it</th>
                 <td>JavaScript against the ee and ui libraries</td>
-                <td>One sentence, then edit the route if you want</td>
+                <td>One sentence, then ask for changes</td>
               </tr>
               <tr>
                 <th scope="row">Choosing data</th>
                 <td>You find the dataset ID, bands and scale factors</td>
-                <td>Picked from a curated catalog, with the trade-offs shown</td>
+                <td>Picked for your place and dates, with the trade-offs shown</td>
               </tr>
               <tr>
                 <th scope="row">Where it runs</th>
-                <td>Google's servers, against the publisher's Cloud project</td>
-                <td>The viewer's browser, reading open data directly</td>
+                <td>Google’s servers, against the publisher’s Cloud project and quota</td>
+                <td>The viewer’s browser, reading open data directly</td>
               </tr>
               <tr>
-                <th scope="row">Keeping it online</th>
-                <td>The publisher's quota pays for every visit</td>
-                <td>Nothing to host: the link holds the whole app</td>
+                <th scope="row">Publishing</th>
+                <td>An app URL tied to your project</td>
+                <td>A link, an embed with credits, or a slide image</td>
               </tr>
               <tr>
                 <th scope="row">Heavy jobs</th>
@@ -317,49 +474,15 @@ export function Landing() {
             </tbody>
           </table>
         </section>
-
-        <section className="riders" aria-labelledby="riders-title">
-          <h2 id="riders-title">Who it's for</h2>
-          <ul>
-            <li>
-              <h3>Researchers</h3>
-              <p>A map app for a paper, a poster or a talk, without a week of scripting.</p>
-            </li>
-            <li>
-              <h3>Students</h3>
-              <p>Learning what each satellite can and can't see by riding different routes to the same question.</p>
-            </li>
-            <li>
-              <h3>Extension agents and advisors</h3>
-              <p>Answering a grower's question about one field, with a link they can open on a phone.</p>
-            </li>
-            <li>
-              <h3>Reporters and NGOs</h3>
-              <p>Checking a flood, a fire or a heat wave against the satellite record, and showing the work.</p>
-            </li>
-          </ul>
-        </section>
-
-        <section className="limits" aria-labelledby="limits-title">
-          <h2 id="limits-title">What it can't do yet</h2>
-          <ul>
-            <li>Long composites over very large areas. The browser previews as much of a place as each dataset reads quickly, from a county for Sentinel-2 to a whole ocean for sea temperature, and exports the rest.</li>
-            <li>{exportCount} of the {STATIONS.length} datasets, including air quality, soil moisture and night lights, aren't readable in the browser yet.</li>
-            <li>The built-in reader handles plain sentences. Looser ones read better with your own Claude API key, which stays in your browser.</li>
-            <li>No accounts, uploads or private data. Everything is open data.</li>
-          </ul>
-          <div className="route-actions">
-            <a className="btn btn-primary" href="#build">
-              Open the builder
-            </a>
-            <a className="btn" href={REPO}>
-              Read the code
-            </a>
-          </div>
-        </section>
       </main>
 
-      <footer className="landing-foot">
+      <footer className="home-foot">
+        <div className="home-foot-cta">
+          <p>What should the map show?</p>
+          <a className="btn btn-signal" href="#build">
+            Open the studio
+          </a>
+        </div>
         <p>
           Interchange is open source under the MIT license. Data from ESA Copernicus, USGS and NASA, NOAA, USDA, Impact Observatory, ESA CCI and the EC JRC, read through{' '}
           <a href="https://element84.com/earth-search/">Earth Search</a> and the <a href="https://planetarycomputer.microsoft.com/">Microsoft Planetary Computer</a>. Basemap by{' '}

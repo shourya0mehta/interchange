@@ -77,6 +77,25 @@ export async function readCogWindow(
   targetRes: number,
   sample = 0,
 ): Promise<RasterWindow | null> {
+  // Open data hosts drop the odd range request under load. Try twice more, on a fresh source
+  // each time, before telling the reader the layer failed.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await readCogWindowOnce(url, bounds, targetRes, sample);
+    } catch (e) {
+      if ((e as Error).name === 'AbortError' || attempt >= 2) throw e;
+      tiffs.delete(url);
+      await new Promise((r) => setTimeout(r, attempt === 0 ? 600 : 1800));
+    }
+  }
+}
+
+async function readCogWindowOnce(
+  url: string,
+  bounds: [number, number, number, number],
+  targetRes: number,
+  sample: number,
+): Promise<RasterWindow | null> {
   const tiff = await openCog(url);
   const info = await describe(tiff);
   let level = info.levels[0];

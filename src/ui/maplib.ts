@@ -7,12 +7,13 @@ import type { Bbox } from '../runtime/geo';
 
 export const BASEMAP = 'https://tiles.openfreemap.org/styles/positron';
 
-export function createMap(container: HTMLElement, bbox: Bbox, opts: { interactive?: boolean; cooperative?: boolean } = {}): MlMap {
+export function createMap(container: HTMLElement, bbox: Bbox, opts: { interactive?: boolean; cooperative?: boolean; padLeft?: number } = {}): MlMap {
   const map = new MlMap({
     container,
     style: BASEMAP,
     bounds: bbox as [number, number, number, number],
-    fitBoundsOptions: { padding: 24 },
+    // Room on the left when a card sits over the map there, so the area isn't hidden under it.
+    fitBoundsOptions: { padding: { top: 24, bottom: 24, right: 24, left: 24 + (opts.padLeft ?? 0) } },
     attributionControl: opts.interactive === false ? false : { compact: true },
     interactive: opts.interactive ?? true,
     fadeDuration: 0,

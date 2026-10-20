@@ -28,6 +28,8 @@ export interface MapViewProps {
   shape?: [number, number][][];
   /** Leave the scroll wheel to the page (embeds and journeys). */
   cooperative?: boolean;
+  /** Pixels a card covers on the map's left edge; the area is framed to the right of it. */
+  padLeft?: number;
 }
 
 function grab(m: MlMap): Promise<HTMLCanvasElement> {
@@ -44,7 +46,7 @@ function grab(m: MlMap): Promise<HTMLCanvasElement> {
   });
 }
 
-export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef, captureBaseRef, onHover, probe, shape, cooperative }: MapViewProps) {
+export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef, captureBaseRef, onHover, probe, shape, cooperative, padLeft }: MapViewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const aRef = useRef<HTMLDivElement>(null);
   const bRef = useRef<HTMLDivElement>(null);
@@ -95,7 +97,7 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
   // Map A always exists. In swipe mode it shows the "before" layer on the left; map B
   // sits on top, clipped to the right of the divider, showing "after".
   useEffect(() => {
-    const a = createMap(aRef.current!, bbox, { cooperative });
+    const a = createMap(aRef.current!, bbox, { cooperative, padLeft });
     mapA.current = a;
     a.on('click', (e) => clickRef.current?.([e.lngLat.lng, e.lngLat.lat]));
     // Fine pointers only: on touch, a probe under the finger just gets in the way.

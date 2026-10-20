@@ -637,9 +637,12 @@ export function parseGoal(text: string, now: Date = new Date()): Intent {
         : { label: `After ${ev.short}`, start: ev.date, end: addDays(ev.date, 60) };
     time = { kind: 'compare', windows: [before, clampEnd(after, now)] };
   }
+  // Words inside the event's own name aren't the place: "eaton fire" isn't Eaton County, and
+  // "pakistan floods" means where they hit hardest, not the whole country.
+  const evName = ev ? (original.match(ev.re)?.[0] ?? '').toLowerCase() : '';
   const places = placeCandidates(original)
     .map((c) => expandAlias(c.text))
-    .filter((p) => !ev || !ev.re.test(p));
+    .filter((p) => !ev || (!ev.re.test(p) && !evName.includes(p.toLowerCase())));
   if (ev) places.push(ev.place);
   return { text: original, place: places[0] ?? null, places: places.slice(1), theme, station, views, time, season, matched };
 }

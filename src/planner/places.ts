@@ -35,7 +35,8 @@ export class LookupDown extends Error {
 let lastFailed = { nominatim: false, photon: false };
 
 function once(query: string, signal?: AbortSignal): Promise<Place | null> {
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
+  // English names where OpenStreetMap has one: "Pakistan", not "پاکستان".
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=en&q=${encodeURIComponent(query)}`;
   return getFetcher()(url, { signal, headers: { Accept: 'application/json' } })
     .then((r) => {
       lastFailed.nominatim = !r.ok;
@@ -108,7 +109,7 @@ function photonPlace(f: PhotonFeature, query: string): Place {
 function photon(query: string, signal?: AbortSignal, minScore = 3): Promise<Place | null> {
   // Counties hide behind parks and fairgrounds that share their name unless asked for by layer.
   const layer = /\b(county|parish|borough)\b/i.test(query) ? '&layer=county' : '';
-  const url = `https://photon.komoot.io/api/?limit=8&q=${encodeURIComponent(query)}${layer}`;
+  const url = `https://photon.komoot.io/api/?limit=8&lang=en&q=${encodeURIComponent(query)}${layer}`;
   return getFetcher()(url, { signal })
     .then((r) => {
       lastFailed.photon = !r.ok;

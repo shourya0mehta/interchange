@@ -38,7 +38,8 @@ const CASES: Case[] = [
   { q: 'water in cayuga lake', place: 'cayuga lake', theme: 'water', top: 'sentinel-2' },
   { q: 'Map flooding in Houston before and after August 2017', place: 'houston', theme: 'flood', top: 'sentinel-1', time: 'compare' },
   { q: 'flooding from hurricane harvey', place: 'houston, texas', theme: 'flood', top: 'sentinel-1', time: 'compare' },
-  { q: 'pakistan floods 2022', place: 'pakistan', theme: 'flood', top: 'sentinel-1' },
+  // The country is in the event's name; the map goes where the water was worst.
+  { q: 'pakistan floods 2022', place: 'sindh, pakistan', theme: 'flood', top: 'sentinel-1' },
   { q: 'flooded areas in new orleans after hurricane katrina', place: 'new orleans', theme: 'flood', top: 'landsat', time: 'compare' },
   { q: 'mississippi river flooding in 2019', place: 'mississippi river', theme: 'flood', top: 'sentinel-1' },
   { q: 'flood in bangladesh june 2024', place: 'bangladesh', theme: 'flood', top: 'sentinel-1' },

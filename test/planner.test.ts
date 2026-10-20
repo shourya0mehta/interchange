@@ -51,6 +51,12 @@ describe('parseGoal', () => {
     expect(after).toMatchObject({ label: 'After Harvey', start: '2017-08-27', end: '2017-09-10', prefer: 'earliest' });
   });
 
+  it('does not take words from an event\'s name as the place', () => {
+    expect(parseGoal('eaton fire altadena', NOW).place?.toLowerCase()).toBe('altadena');
+    expect(parseGoal('pakistan floods', NOW).place).toBe('Sindh, Pakistan');
+    expect(parseGoal('Burn scar from the Camp Fire in Paradise, California', NOW).place).toBe('Paradise, California');
+  });
+
   it('gives a named fire a longer after window, clearest first', () => {
     const i = parseGoal('Burn scar from the Camp Fire', NOW);
     if (i.time.kind !== 'compare') throw new Error('expected a before and after');

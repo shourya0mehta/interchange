@@ -466,7 +466,9 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
     const ratio = place && st.live ? placeArea / cap : 0;
     // Asking about fields, farms or streets says detail matters more than seeing the whole place.
     const wantsDetail = /\b(fields?|farms?|parcels?|plots?|orchards?|neighbou?rhoods?|streets?|blocks?|detail(ed)?|zoom(ed)? in)\b/i.test(intent.text);
-    if (!c.specific && ratio > (wantsDetail ? 50 : 4)) p += ratio > 50 && !wantsDetail ? 2 : 1;
+    // Floods happen under cloud, so radar's sliver still beats a slightly bigger optical one.
+    const cloudy = intent.theme === 'flood' && st.score.cloudBlind;
+    if (!c.specific && ratio > (wantsDetail ? 50 : 4)) p += ratio > 50 && !wantsDetail && !cloudy ? 2 : 1;
     // One fixed map can't answer a question about particular dates (a flood, a drought year).
     if (st.temporal === 'static' && (intent.time.kind !== 'snapshot' || intent.theme === 'flood')) p += 2;
     // A stand-in ranks below the real thing when the person named the real thing.

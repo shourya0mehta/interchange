@@ -54,7 +54,7 @@ export async function pointSeries(
   lonLat: [number, number],
   start: string,
   end: string,
-  opts: EvalOptions & { maxScenes?: number } = {},
+  opts: EvalOptions & { maxScenes?: number; season?: { start: string; end: string } } = {},
 ): Promise<SeriesResult> {
   const src = RUNTIME_SOURCES[station];
   if (!src) throw new Error(`${station} has no live reader yet`);
@@ -75,6 +75,15 @@ export async function pointSeries(
     });
   const t0 = Date.parse(`${start}T00:00:00Z`);
   const t1 = Date.parse(`${end}T00:00:00Z`);
+  // The middle of the map's season as a month and day ("01-14" for a winter), for long records.
+  const years = Number(end.slice(0, 4)) - Number(start.slice(0, 4)) + 1;
+  let target: string | null = null;
+  if (opts.season && years >= 8) {
+    const a = Date.parse(`2001${opts.season.start.slice(4)}T00:00:00Z`);
+    let b = Date.parse(`2001${opts.season.end.slice(4)}T00:00:00Z`);
+    if (b < a) b = Date.parse(`2002${opts.season.end.slice(4)}T00:00:00Z`);
+    target = new Date((a + b) / 2).toISOString().slice(5, 10);
+  }
   const days = (t1 - t0) / 86_400_000;
   const step = src.kind === 'product' ? (src.stepDays ?? 8) : 0;
   let pages: StacItem[][];
@@ -82,10 +91,15 @@ export async function pointSeries(
     // A daily or 8-day product over decades: ask for one short window at each of maxScenes evenly
     // spaced dates rather than paging through thousands of items.
     const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
-    const spans = Array.from({ length: maxScenes }, (_, i) => {
-      const at = t0 + ((i + 0.5) * (t1 - t0)) / maxScenes;
-      return [iso(at), iso(at + (step + 2) * 86_400_000)] as [string, string];
-    });
+    const y0 = Number(start.slice(0, 4));
+    // With a season to follow, one short window a year at its middle; otherwise evenly spaced.
+    const atSeason = target
+      ? Array.from({ length: years }, (_, i) => Date.parse(`${y0 + i}-${target}T00:00:00Z`)).filter((t) => t >= t0 && t <= t1)
+      : [];
+    const thin = atSeason.length > maxScenes ? atSeason.filter((_, i) => i % Math.ceil(atSeason.length / maxScenes) === 0) : atSeason;
+    const spans = (thin.length >= 4 ? thin : Array.from({ length: maxScenes }, (_, i) => t0 + ((i + 0.5) * (t1 - t0)) / maxScenes)).map(
+      (at) => [iso(at - 86_400_000 * Math.ceil(step / 2)), iso(at + (Math.ceil(step / 2) + 2) * 86_400_000)] as [string, string],
+    );
     // A window the catalog refuses (throttling) is skipped rather than sinking the whole chart.
     let failed = 0;
     let lastError: unknown = null;
@@ -108,6 +122,23 @@ export async function pointSeries(
   }
   const found = pages.flat();
   let items = onePerDay(found);
+  // Over many years, every-month readings draw the seasons as a wave and hide the trend. Keep
+  // one reading a year, the one nearest the middle of the map's own season.
+  if (target && items.length > years) {
+    // A monthly or 8-day product is dated by its first day; compare its middle with the target.
+    const half = (step / 2) * 86_400_000;
+    const off = (it: StacItem) => {
+      const mid = new Date(Date.parse(it.datetime) + half).toISOString();
+      return Math.abs(Date.parse(`2001-${mid.slice(5, 10)}T00:00:00Z`) - Date.parse(`2001-${target}T00:00:00Z`));
+    };
+    const byYear = new Map<string, StacItem>();
+    for (const it of items) {
+      const y = it.datetime.slice(0, 4);
+      const prev = byYear.get(y);
+      if (!prev || off(it) < off(prev)) byYear.set(y, it);
+    }
+    items = [...byYear.values()].sort((a, b) => a.datetime.localeCompare(b.datetime));
+  }
   if (items.length > maxScenes) {
     // Thin evenly through time instead of truncating the end.
     const step = items.length / maxScenes;

@@ -169,7 +169,7 @@ export function AppRuntime({
     setSeriesStatus({ state: 'loading', message: 'Finding scenes' });
     const start = spec.history?.start ?? spec.windows[0].start.slice(0, 4) + '-01-01';
     const end = spec.history?.end ?? spec.windows[spec.windows.length - 1].end;
-    pointSeries(spec.station, spec.signal, pt, start, end, { onProgress: (m) => setSeriesStatus({ state: 'loading', message: m }) })
+    pointSeries(spec.station, spec.signal, pt, start, end, { season: spec.windows[spec.windows.length - 1], onProgress: (m) => setSeriesStatus({ state: 'loading', message: m }) })
       .then((s) => {
         setSeries(s);
         setSeriesStatus({ state: 'idle' });

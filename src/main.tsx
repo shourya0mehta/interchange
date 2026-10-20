@@ -13,7 +13,6 @@ import './styles.css';
 import './landing.css';
 import './studio.css';
 import './home.css';
-import { GlobeLab } from './globe/GlobeLab';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeSpec } from './compiler/spec';
@@ -28,7 +27,6 @@ setUrlSigner(signPlanetaryComputer);
 
 type Screen =
   | { kind: 'landing' }
-  | { kind: 'lab' }
   | { kind: 'app'; token: string }
   | { kind: 'embed'; token: string }
   | { kind: 'build'; fork: string | null; q: string | null; station: string | null };
@@ -36,7 +34,6 @@ type Screen =
 /** Hash routes, so the static site needs no server rewrites: #app=, #fork=, #build?q=, or the landing page. */
 function readHash(): Screen {
   const h = location.hash.slice(1);
-  if (h === 'lab-globe') return { kind: 'lab' };
   if (h.startsWith('app=')) return { kind: 'app', token: h.slice(4) };
   if (h.startsWith('embed=')) return { kind: 'embed', token: h.slice(6) };
   if (h.startsWith('fork=')) return { kind: 'build', fork: h.slice(5), q: null, station: null };
@@ -90,8 +87,7 @@ function Root() {
   }, []);
   const key = screen.kind === 'app' || screen.kind === 'embed' ? `${screen.kind}|${screen.token}` : screen.kind === 'build' ? `build|${screen.fork}|${screen.q}|${screen.station}` : 'landing';
   let body;
-  if (screen.kind === 'lab') body = <GlobeLab />;
-  else if (screen.kind === 'app') body = <Published token={screen.token} />;
+  if (screen.kind === 'app') body = <Published token={screen.token} />;
   else if (screen.kind === 'embed') body = <Embedded token={screen.token} />;
   else if (screen.kind === 'build') {
     document.title = 'Interchange studio';

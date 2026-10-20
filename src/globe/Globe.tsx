@@ -148,7 +148,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
       v.target = null;
       return;
     }
-    const span = focus.bbox ? Math.max(focus.bbox[2] - focus.bbox[0], focus.bbox[3] - focus.bbox[1]) : 10;
+    // The planet stays whole; the place is marked rather than zoomed into.
     const zoom = 1;
     v.target = { lon: focus.lon, lat: Math.max(-60, Math.min(60, focus.lat)), zoom, t0: performance.now(), from: { lon: v.lon, lat: v.lat, zoom: v.zoom } };
     v.vLon = 0;

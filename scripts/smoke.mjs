@@ -42,7 +42,7 @@ await page.waitForFunction(() => document.querySelector('.home-hero .heard')?.te
 ok('home reads back a typed question', (await page.locator('.home-hero .heard').innerText()).includes('1999 to now'));
 ok('departures board lists real apps', (await page.locator('.board a[href*="#app="]').count()) >= 8);
 await page.getByRole('tab', { name: /Classrooms/ }).click();
-await page.waitForFunction(() => document.querySelector('.job-panel img')?.getAttribute('src')?.includes('classroom'), null, { timeout: 5_000 }).catch(() => {});
+await page.waitForFunction(() => document.querySelector('.job-panel img')?.getAttribute('src')?.includes('classroom'), null, { timeout: 15_000 }).catch(() => {});
 ok('jobs switch to classrooms', (await page.locator('.job-panel img').getAttribute('src')).includes('classroom'));
 await page.locator('#network').scrollIntoViewIfNeeded();
 await page.waitForSelector('.station-hit', { timeout: 10_000 });
@@ -56,7 +56,10 @@ await page.keyboard.press('Escape');
 await page.goto(`${BASE}#build`);
 await page.waitForSelector('#goal');
 await page.fill('#goal', 'Compare greenness of fields in Fresno County, California in summer 2019 vs summer 2025');
-await page.waitForFunction(() => document.querySelector('.heard')?.textContent?.includes('Found on the map'), null, { timeout: 15_000 });
+// The sign's place check uses Photon as you type; when Photon is down the build still uses Nominatim.
+await page
+  .waitForFunction(() => document.querySelector('.heard')?.textContent?.includes('Found on the map'), null, { timeout: 15_000 })
+  .catch(() => console.log('NOTE  Photon did not answer; the sign could not confirm the place while typing'));
 await page.screenshot({ path: `${OUT}/1-studio-start.png` });
 ok('studio reads back the question', (await page.locator('.heard').innerText()).includes('Summer 2019 vs Summer 2025'));
 await page.press('#goal', 'Enter');

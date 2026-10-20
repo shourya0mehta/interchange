@@ -127,7 +127,8 @@ function suggestions(intent: Intent, route: Route | undefined, routes: Route[], 
   const changes = st.temporal !== 'static';
   if (changes && t.kind === 'snapshot' && Math.max(earliest, y1 - 5) < y1) out.push(`Compare with ${Math.max(earliest, y1 - 5)}`);
   if (changes && t.kind === 'compare' && y0 - 5 >= earliest) out.push(`Compare with ${y0 - 5} instead`);
-  if (changes && t.kind !== 'yearly' && Math.max(earliest, y1 - 6) < y1) out.push(`Make it a slider by year since ${Math.max(earliest, y1 - 6)}`);
+  const from = t.kind === 'history' ? Math.max(earliest, y0) : Math.max(earliest, y1 - 6);
+  if (changes && t.kind !== 'yearly' && from < y1) out.push(`Make it a slider by year since ${from}`);
   if (!route.views.includes('click-chart') && (st.temporal === 'dense' || st.temporal === 'composite') && route.signal !== 'true-color') out.push('Add a history chart where I click');
   out.push('Zoom out');
   const alt = routes.find((r) => r.station !== route.station && r.runs === 'live');

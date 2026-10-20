@@ -322,8 +322,10 @@ export function parseTime(
     const startYear = first ?? last - 5;
     const years: number[] = [];
     for (let y = startYear; y <= last; y++) years.push(y);
-    // At most eight maps, always including the first and last years asked for.
-    const step = Math.max(1, Math.ceil((years.length - 1) / 7));
+    // At most eight maps (twelve when every year is asked for), always including the first and
+    // last years asked for.
+    const most = /\b(each|every|per|by) year\b|\byear by year\b/i.test(text) ? 12 : 8;
+    const step = Math.max(1, Math.ceil((years.length - 1) / (most - 1)));
     const picked = years.filter((_, i) => i % step === 0);
     if (picked[picked.length - 1] !== years[years.length - 1]) picked.push(years[years.length - 1]);
     return { time: { kind: 'yearly', windows: picked.map((y) => clampEnd(seasonWindow(s, y), now)) }, season };

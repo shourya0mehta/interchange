@@ -426,7 +426,18 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
     }
     // Each dataset previews as much of the place as it can read quickly; export routes take it all.
     const cap = previewCap(st.id);
-    const capped = place && st.live ? capBbox(place.bbox, cap) : place ? { bbox: place.bbox, capped: false } : null;
+    // Sea temperature comes in 25 km cells: a city-sized box holds two or three, mostly over land.
+    // Open it to at least 3 degrees around the place so the nearby sea is on the map.
+    const roomy = (b: Bbox): Bbox => {
+      if (st.id !== 'oisst') return b;
+      const [w, s0, e, n] = b;
+      const cx = (w + e) / 2;
+      const cy = (s0 + n) / 2;
+      const hw = Math.max((e - w) / 2, 1.5);
+      const hh = Math.max((n - s0) / 2, 1.5);
+      return [Math.max(-180, cx - hw), Math.max(-85, cy - hh), Math.min(180, cx + hw), Math.min(85, cy + hh)];
+    };
+    const capped = place && st.live ? capBbox(roomy(place.bbox), cap) : place ? { bbox: place.bbox, capped: false } : null;
     const aoi = place ? { name: place.name, bbox: capped!.bbox, capped: capped!.capped, shape: place.shape } : { name: 'Pick a place', bbox: [0, 0, 0, 0] as Bbox };
     const methods = methodsFor(st, c.signal, wantsChange && fit.windows.length === 2);
     const output = st.provides === 'scene' ? (c.signal === 'true-color' ? 'image' : 'raster') : st.provides;
@@ -451,7 +462,7 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
     }
     // Notes that only hold for one way of looking: radar's wind caveat, burn severity's timing.
     const note = THEME_NOTES[intent.theme];
-    const applies = intent.theme === 'water' ? st.id === 'sentinel-1' : intent.theme === 'fire' ? c.signal === 'nbr' : true;
+    const applies = intent.theme === 'water' ? st.id === 'sentinel-1' : intent.theme === 'fire' ? c.signal === 'nbr' : intent.theme === 'forest-loss' ? c.signal === 'ndvi' : true;
     if (note && applies) route.warnings.unshift(note);
     const check = checkRoute(route);
     if (!check.ok) {

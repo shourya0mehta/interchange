@@ -592,7 +592,7 @@ export function AppRuntime({
           {current && current.scenes.length > 0 && (
             <p className="hint">
               This view uses {current.scenes.length} {current.scenes.length === 1 ? 'acquisition' : 'acquisitions'}: {current.scenes.slice(0, 4).map((s) => s.date).join(', ')}
-              {current.scenes.length > 4 ? ', and more' : ''}. Pixels are {pixelSizeLabel(current.grid)} on this preview.
+              {current.scenes.length > 4 ? ', and more' : ''}. Pixels are {pixelSizeLabel(current.grid, station.score.resolutionM)} on this preview.
             </p>
           )}
           {mode === 'published' && onFork && (

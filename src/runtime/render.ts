@@ -169,7 +169,8 @@ export function regionStats(result: LayerResult): ContinuousStats | ClassStats |
   return { kind: 'continuous', mean: sum / sample.length, p10: q(0.1), median: q(0.5), p90: q(0.9), coverage: result.coverage };
 }
 
-export function pixelSizeLabel(grid: Grid): string {
-  const m = gridPixelMeters(grid);
+export function pixelSizeLabel(grid: Grid, sourceM = 0): string {
+  // A preview grid finer than the data doesn't add detail; report the coarser of the two.
+  const m = Math.max(gridPixelMeters(grid), sourceM);
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
 }

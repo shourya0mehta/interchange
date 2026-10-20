@@ -16,7 +16,7 @@ describe('parseGoal', () => {
     expect(i.views).toEqual(expect.arrayContaining(['time-slider', 'click-chart']));
     expect(i.time.kind).toBe('yearly');
     if (i.time.kind !== 'yearly') return;
-    expect(i.time.windows.length).toBeLessThanOrEqual(8);
+    expect(i.time.windows.length).toBeLessThanOrEqual(12);
     expect(i.time.windows[0].label).toBe('Early spring 2018');
     expect(i.time.windows.at(-1)!.label).toBe('Early spring 2026');
   });

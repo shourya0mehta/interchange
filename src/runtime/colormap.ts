@@ -191,7 +191,7 @@ const THERMAL = [
 ];
 
 const EXTRA_RAMPS = {
-  sst: { domain: [-2, 32], stops: THERMAL, units: 'Sea surface temperature', low: 'cooler', high: 'warmer', format: 'celsius', adaptive: 4 },
+  sst: { domain: [-2, 32], stops: THERMAL, units: 'Sea surface temperature', low: '', high: '', format: 'celsius', adaptive: 4 },
   'sst-anomaly': {
     domain: [-3, 3],
     stops: [
@@ -206,8 +206,8 @@ const EXTRA_RAMPS = {
     high: 'warmer',
     format: 'celsius',
   },
-  lst: { domain: [0, 50], stops: THERMAL, units: 'Ground surface temperature by day', low: 'cooler', high: 'hotter', format: 'celsius', adaptive: 8 },
-  'air-temp': { domain: [-15, 35], stops: THERMAL, units: 'Average air temperature', low: 'cooler', high: 'warmer', format: 'celsius', adaptive: 4 },
+  lst: { domain: [0, 50], stops: THERMAL, units: 'Ground surface temperature by day', low: '', high: '', format: 'celsius', adaptive: 8 },
+  'air-temp': { domain: [-15, 35], stops: THERMAL, units: 'Average air temperature', low: '', high: '', format: 'celsius', adaptive: 4 },
   'snow-frequency': {
     domain: [0, 1],
     stops: [

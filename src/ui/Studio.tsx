@@ -67,7 +67,7 @@ export const TEMPLATES: { who: string; job: string; questions: string[] }[] = [
     questions: [
       'Map flooding in Houston before and after Hurricane Harvey',
       'Sea surface temperature against normal in the Gulf of Mexico this summer',
-      'Burn severity in Paradise, California before and after November 2018',
+      'Burn scar from the Camp Fire in Paradise, California',
     ],
   },
   {

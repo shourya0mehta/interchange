@@ -75,3 +75,12 @@ Newsrooms are asked to credit Copernicus data as "Contains modified Copernicus S
 
 ## Photon names countries in their own language
 Photon returns Bangladesh as "বাংলাদেশ", so an exact-name bonus went to a neighborhood called Bangladesh in Mombasa. Countries and states now also match on Photon's English country and state fields, and are named in English.
+
+## Journeys, because one map rarely tells the story
+Reporters and teachers both work in sequences: the flood, then the rain that caused it; the snowpack, then the reservoir it fills. A journey strings maps together with a caption at each stop and publishes as one link (`#journey=`), about a kilobyte per stop. The reader scrolls the captions and the map beside them changes at each stop. Embedded maps and journeys use cooperative gestures, so the scroll wheel moves the page and zooming takes a modifier key.
+
+## Boundaries mask, not just frame
+An uploaded GeoJSON or KML is simplified to at most 400 points so it fits in the link, then rasterized onto the preview grid with an even-odd scanline fill (holes stay holes). Everything outside it becomes empty, so the map, the area totals and the GIF describe just the fields or the district.
+
+## Recent maps stay in the browser
+The studio lists maps built in this browser (localStorage, eight at most, clearable). There are still no accounts; the list is a convenience, and every map is also its own link.

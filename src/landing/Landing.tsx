@@ -93,6 +93,15 @@ const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; p
     place: { name: 'Fresno County, California', bbox: [-120.92, 35.9, -118.36, 37.59] },
     shot: 'use-field.jpg',
     alt: 'A slide image exported from Interchange: Fresno County greenness in summer 2010 and summer 2025, side by side, with a legend and credit line',
+    journey: {
+      title: 'Fresno County fields, a three-stop report',
+      label: 'Open a county report',
+      stops: [
+        { q: 'Compare greenness of fields in Fresno County, California in summer 2019 vs summer 2025', place: { name: 'Fresno County, California', bbox: [-120.92, 35.9, -118.36, 37.59] }, caption: 'Greenness at the height of two summers. Fields that went pale in 2025 were fallowed or harvested early.' },
+        { q: 'What crops grew in Fresno County, California in 2021', place: { name: 'Fresno County, California', bbox: [-120.92, 35.9, -118.36, 37.59] }, caption: 'The USDA crop map for the same ground: orchards, vineyards and row crops, field by field.' },
+        { q: 'Land surface temperature in Fresno County, California, summer 2025', place: { name: 'Fresno County, California', bbox: [-120.92, 35.9, -118.36, 37.59] }, caption: 'Ground temperature by day. Irrigated orchards run cooler than bare and fallow ground.' },
+      ],
+    },
   },
 ];
 

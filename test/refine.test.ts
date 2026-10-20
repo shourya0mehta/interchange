@@ -32,6 +32,23 @@ describe('follow-up requests', () => {
     expect(r.intent.place?.toLowerCase()).toContain('ames');
     expect(r.intent.time).toEqual(base().time);
   });
+  it('"now do clovis" moves the place even in lowercase', () => {
+    const r = refine(base(), 'now do clovis', NOW);
+    expect(r.newPlace).toBe(true);
+    expect(r.intent.place?.toLowerCase()).toBe('clovis');
+  });
+  it('"make it prettier" is not a place', () => {
+    const r = refine(base(), 'make it prettier', NOW);
+    expect(r.newPlace).toBe(false);
+    expect(r.changes).toEqual([]);
+  });
+  it('"rain in houston during harvey" becomes that month\'s rain, not a before and after', () => {
+    const flood = parseGoal('Map flooding in Houston before and after Hurricane Harvey', NOW);
+    const r = refine(flood, 'rain in houston during harvey', NOW);
+    expect(r.intent.theme).toBe('rain');
+    expect(r.intent.time.kind).toBe('snapshot');
+    expect(r.intent.views).not.toContain('swipe');
+  });
   it('"zoom out" widens the area without a lookup', () => {
     const r = refine(base(), 'zoom out', NOW);
     expect(r.scale).toBe(3);

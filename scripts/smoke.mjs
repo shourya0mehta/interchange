@@ -20,7 +20,7 @@ const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '-
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
 const watch = (page) => {
   page.on('console', (m) => {
-    if (m.type() === 'error' && !/Failed to load resource|net::ERR|WebGL|GPU stall|GroupMarkerNotSet|nominatim.openstreetmap.org.*CORS/i.test(m.text())) errors.push(m.text());
+    if (m.type() === 'error' && !/Failed to load resource|net::ERR|WebGL|GPU stall|GroupMarkerNotSet|(nominatim.openstreetmap.org|planetarycomputer.microsoft.com).*CORS/i.test(m.text())) errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
 };

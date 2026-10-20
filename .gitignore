@@ -3,5 +3,5 @@ dist
 .DS_Store
 *.log
 test-results
-shots
+/shots
 .kymo

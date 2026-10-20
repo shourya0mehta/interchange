@@ -111,6 +111,23 @@ function Root() {
   );
 }
 
+// Touch screens don't always paint :active, so mark the pressed control the moment a finger lands.
+const PRESSABLE = '.btn, .chip, .job-tab, .example, .brand, .recent-map, .board-q a';
+let pressed: HTMLElement | null = null;
+const release = () => {
+  pressed?.removeAttribute('data-pressed');
+  pressed = null;
+};
+document.addEventListener('pointerdown', (e) => {
+  const el = (e.target as Element | null)?.closest?.(PRESSABLE) as HTMLElement | null;
+  if (!el || (el as HTMLButtonElement).disabled) return;
+  release();
+  pressed = el;
+  el.setAttribute('data-pressed', 'true');
+});
+document.addEventListener('pointerup', () => setTimeout(release, 90));
+document.addEventListener('pointercancel', release);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Root />

@@ -1036,6 +1036,7 @@ a.btn {
 /* The embed's credit bar sits under the map, not over its attribution. */
 .embed > .map-wrap {
   inset: 0 0 30px 0;
+  height: auto;
 }
 .embed-credit {
   height: 30px;
@@ -1091,4 +1092,25 @@ a.btn {
 }
 .studio-start {
   height: 100%;
+}
+/* Pressed, the moment a finger lands. */
+.btn[data-pressed],
+.chip[data-pressed],
+.example[data-pressed],
+.recent-map[data-pressed] {
+  transform: translateY(1px);
+}
+.btn-primary[data-pressed] {
+  background: #000;
+}
+.btn[data-pressed]:not(.btn-primary):not(.btn-signal),
+.chip[data-pressed],
+.example[data-pressed] {
+  background: var(--highlighter);
+}
+.job-tab[data-pressed] {
+  transform: translateX(2px);
+}
+.brand[data-pressed] {
+  opacity: 0.7;
 }

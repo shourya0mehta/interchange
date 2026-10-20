@@ -122,13 +122,13 @@ function useDemo(active: boolean) {
 }
 
 /** Plays its animation once, when it first scrolls into view. */
-function useInView<T extends Element>(): [React.RefObject<T | null>, boolean] {
+function useInView<T extends Element>(margin = '0px', threshold = 0.35): [React.RefObject<T | null>, boolean] {
   const ref = useRef<T>(null);
   const [seen, setSeen] = useState(false);
   useEffect(() => {
     const el = ref.current;
     if (!el || seen) return;
-    const io = new IntersectionObserver(([e]) => e.isIntersecting && setSeen(true), { threshold: 0.35 });
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setSeen(true), { threshold, rootMargin: margin });
     io.observe(el);
     return () => io.disconnect();
   }, [seen]);
@@ -172,6 +172,8 @@ export function Landing() {
   const liveCount = STATIONS.filter((s) => s.live).length;
   const [howRef, howSeen] = useInView<HTMLOListElement>();
   const [boardRef, boardSeen] = useInView<HTMLTableElement>();
+  // The network map is big; draw it when it's about to scroll into view, not on arrival.
+  const [netRef, netNear] = useInView<HTMLDivElement>('600px', 0);
   const active = jobs.find((j) => j.id === job)!;
 
   useEffect(() => {
@@ -285,7 +287,12 @@ export function Landing() {
                   aria-selected={job === j.id}
                   aria-controls="job-panel"
                   className="job-tab"
-                  onClick={() => setJob(j.id)}
+                  onClick={() => {
+                    setJob(j.id);
+                    // On a phone the example sits below the list: take the reader to it.
+                    if (matchMedia('(max-width: 860px)').matches)
+                      requestAnimationFrame(() => document.getElementById('job-panel')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' }));
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                       e.preventDefault();
@@ -444,8 +451,8 @@ export function Landing() {
               the map so you can see what exists; routes through them end in an Earth Engine script. Tap a station to see what it measures and what it’s bad at.
             </p>
           </div>
-          <div className="network-scroll">
-            <NetworkMap selected={dossier} highlight={live.back?.stations ?? []} onSelect={setDossier} />
+          <div className="network-scroll" ref={netRef} style={netNear ? undefined : { minHeight: 560 }}>
+            {netNear && <NetworkMap selected={dossier} highlight={live.back?.stations ?? []} onSelect={setDossier} />}
           </div>
           <MapKey />
           {dossier && (

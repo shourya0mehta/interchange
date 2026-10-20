@@ -1,9 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LINE_BY_ID, STATION_BY_ID } from '../network/network';
 
 export function Dossier({ id, onClose, onPlan }: { id: string; onClose: () => void; onPlan: (id: string) => void }) {
   const s = STATION_BY_ID[id];
   const closeRef = useRef<HTMLButtonElement>(null);
+  // Slides out on the exit curve, then unmounts when the animation ends.
+  const [closing, setClosing] = useState(false);
+  const close = () => setClosing(true);
   // Remember what opened the dossier so focus goes back there when it closes.
   useEffect(() => {
     const opener = document.activeElement;
@@ -13,14 +16,21 @@ export function Dossier({ id, onClose, onPlan }: { id: string; onClose: () => vo
   }, []);
   useEffect(() => {
     closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setClosing(true);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [id, onClose]);
   if (!s) return null;
   const status = s.live ? 'Runs live in your browser' : s.temporal === 'in-situ' ? 'Ground network: start from the Python tools below' : 'Export to Earth Engine';
   return (
-    <aside className="dossier" role="dialog" aria-modal="false" aria-labelledby="dossier-name">
+    <aside
+      className="dossier"
+      data-closing={closing || undefined}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="dossier-name"
+      onAnimationEnd={(e) => e.target === e.currentTarget && closing && onClose()}
+    >
       <div className="sign">
         <div className="bullets" aria-label={`Lines: ${s.lines.map((l) => LINE_BY_ID[l].name).join(', ')}`}>
           {s.lines.map((l) => (
@@ -33,7 +43,7 @@ export function Dossier({ id, onClose, onPlan }: { id: string; onClose: () => vo
           {s.name}
         </div>
         <div className="sign-family">{s.family}</div>
-        <button ref={closeRef} className="sign-close" onClick={onClose} aria-label="Close station">
+        <button ref={closeRef} className="sign-close" onClick={close} aria-label="Close station">
           ×
         </button>
       </div>

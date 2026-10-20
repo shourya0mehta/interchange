@@ -221,7 +221,11 @@ interface ParsedTime {
 }
 
 function parseYears(text: string, now: Date): ParsedTime {
-  const t = text.toLowerCase();
+  // "summer '19" and "'05 to '09": two-digit years with an apostrophe become full years.
+  const t = text.toLowerCase().replace(/[‘’'](\d\d)\b/g, (_, yy: string) => {
+    const n = Number(yy);
+    return String(n <= now.getUTCFullYear() % 100 ? 2000 + n : 1900 + n);
+  });
   const out: ParsedTime = { years: [], since: null, range: null, months: [], relative: null };
   const sinceM =
     /\b(?:since|from|after) (1[89]\d\d|20\d\d)\b(?! ?(?:to|-|–|and|through|until) ?(?:1[89]|20)\d\d)/.exec(t) ??
@@ -366,6 +370,7 @@ const NOT_PLACE = new Set(
   effect effects impact impacts affect affected cause caused due because result results across-the
   difference differences different same similar compare-to whole entire overall full part parts half
   hi hey hello thanks thank cool okay ok yeah yes no not don't dont doesn't didn't isn't wasn't
+  underwater flooded-out submerged
   warmed cooled dried dry rose risen fell fallen dropped spread spreading covers covered covering affected moved
   hit struck destroyed damaged damage recovered recovery hurricane storm tornado earthquake event events
   i'd i'm let's what's how's`
@@ -459,6 +464,12 @@ export function placeCandidates(text: string): PlaceCandidate[] {
   const out: PlaceCandidate[] = [];
   for (const r of runs) {
     let words = toks.slice(r.from, r.to + 1);
+    // "LA", "NYC": a known short name stands as a place even when it looks like a joiner.
+    const whole = words.map((t) => t.word).join(' ');
+    if (ALIASES[whole] && (words.length > 1 || /^[A-Z]{2,4}$/.test(words[0].raw) || whole.length > 3)) {
+      out.push({ text: words.map((t) => t.raw).join(' '), score: 6 });
+      continue;
+    }
     // A run that is only place nouns ("lakes", "forest") is a theme word, not a place.
     if (words.every((t) => PLACE_NOUNS.has(t.word) || JOINERS.has(t.word))) continue;
     while (words.length && JOINERS.has(words[0].word)) words = words.slice(1);
@@ -492,6 +503,26 @@ export function placeCandidates(text: string): PlaceCandidate[] {
     seen.add(k);
     return true;
   });
+}
+
+/** Short names people use for big cities; "LA" alone means Los Angeles, not Louisiana. */
+const ALIASES: Record<string, string> = {
+  nyc: 'New York City',
+  'new york': 'New York City',
+  la: 'Los Angeles, California',
+  sf: 'San Francisco, California',
+  dc: 'Washington, DC',
+  'washington dc': 'Washington, DC',
+  'washington d.c': 'Washington, DC',
+  philly: 'Philadelphia, Pennsylvania',
+  nola: 'New Orleans, Louisiana',
+  vegas: 'Las Vegas, Nevada',
+  chi: 'Chicago, Illinois',
+  'the bay': 'San Francisco Bay',
+};
+
+export function expandAlias(phrase: string): string {
+  return ALIASES[phrase.trim().toLowerCase().replace(/\.$/, '')] ?? phrase;
 }
 
 /** The best place phrase in a goal, or null. */
@@ -557,7 +588,7 @@ export function parseGoal(text: string, now: Date = new Date()): Intent {
   }
   const { time, season } = parseTime(text, theme, views, now);
   const places = placeCandidates(original)
-    .map((c) => c.text)
+    .map((c) => expandAlias(c.text))
     .filter((p) => !ev || !ev.re.test(p));
   if (ev) places.push(ev.place);
   return { text: original, place: places[0] ?? null, places: places.slice(1), theme, station, views, time, season, matched };

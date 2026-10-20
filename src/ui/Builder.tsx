@@ -21,6 +21,7 @@ import { JourneyNav, type Step } from './JourneyNav';
 import { PlacePicker } from './PlacePicker';
 import { ReadBackSign } from './ReadBackSign';
 import { useLiveIntent, whenWords } from './readback';
+import { Swap } from './Swap';
 
 type View = Step;
 type Modal = { kind: 'ee'; code: string; title: string } | { kind: 'share'; url: string } | { kind: 'key' } | { kind: 'place' } | null;
@@ -229,6 +230,7 @@ export function Builder({ forkToken, initialGoal, initialStation }: { forkToken:
       </header>
 
       <main className="view">
+        <Swap id={view} className="swap-view">
         {view === 'ask' && (
           <div className="ask">
             <section className="ask-top" aria-labelledby="ask-title">
@@ -472,6 +474,7 @@ export function Builder({ forkToken, initialGoal, initialStation }: { forkToken:
             }
           />
         )}
+        </Swap>
       </main>
 
       {modal && (

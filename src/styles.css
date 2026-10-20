@@ -386,7 +386,18 @@ a {
   border-left: 1px solid var(--rule);
   overflow-y: auto;
   z-index: 20;
-  animation: slide-in 220ms var(--ease-out);
+  animation: slide-in var(--motion-md) var(--ease-enter);
+}
+
+.dossier[data-closing] {
+  animation: slide-out var(--motion-sm) var(--ease-exit) both;
+}
+
+@keyframes slide-out {
+  to {
+    transform: translateX(24px);
+    opacity: 0;
+  }
 }
 
 @keyframes slide-in {
@@ -538,6 +549,19 @@ a {
   cursor: pointer;
 }
 
+.route-title button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+@keyframes editor-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 .route-when {
   margin: 2px 0 0;
   font-weight: 600;
@@ -684,6 +708,7 @@ a {
 /* ---- Stop editor ------------------------------------------------------------------- */
 
 .editor {
+  animation: editor-in var(--motion-md) var(--ease-enter);
   margin-top: 12px;
   padding: 12px 14px;
   background: var(--white);
@@ -1020,6 +1045,20 @@ a {
 
 .made li:last-child::after {
   display: none;
+}
+
+/* Loading rides the route: stops behind the data fill in, the current one is ringed. */
+.made[data-loading] li[data-stop='done']::before {
+  background: var(--route-color, var(--ink));
+}
+
+.made[data-loading] li[data-stop='here']::before {
+  background: var(--route-color, var(--ink));
+  box-shadow: 0 0 0 3px var(--white), 0 0 0 5px var(--route-color, var(--ink));
+}
+
+.made[data-loading] li[data-stop='ahead'] {
+  color: var(--mute);
 }
 
 .made strong {

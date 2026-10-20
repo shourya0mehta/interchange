@@ -14,6 +14,7 @@ import { signPlanetaryComputer } from './runtime/stac';
 import { Landing } from './landing/Landing';
 import { AppRuntime } from './ui/AppRuntime';
 import { Builder } from './ui/Builder';
+import { Swap } from './ui/Swap';
 
 setUrlSigner(signPlanetaryComputer);
 
@@ -68,12 +69,18 @@ function Root() {
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  if (screen.kind === 'app') return <Published token={screen.token} />;
-  if (screen.kind === 'build') {
+  const key = screen.kind === 'app' ? `app|${screen.token}` : screen.kind === 'build' ? `build|${screen.fork}|${screen.q}|${screen.station}` : 'landing';
+  let body;
+  if (screen.kind === 'app') body = <Published token={screen.token} />;
+  else if (screen.kind === 'build') {
     document.title = 'Interchange builder';
-    return <Builder key={`${screen.fork}|${screen.q}|${screen.station}`} forkToken={screen.fork} initialGoal={screen.q} initialStation={screen.station} />;
-  }
-  return <Landing />;
+    body = <Builder forkToken={screen.fork} initialGoal={screen.q} initialStation={screen.station} />;
+  } else body = <Landing />;
+  return (
+    <Swap id={key} className="swap-screen">
+      {body}
+    </Swap>
+  );
 }
 
 createRoot(document.getElementById('root')!).render(

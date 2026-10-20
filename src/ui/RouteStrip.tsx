@@ -41,7 +41,7 @@ export function stripStops(r: Route): StripStop[] {
   return stops;
 }
 
-const ROW = 46;
+const ROW = 52;
 
 /** A strip map, the kind posted inside a subway car: one line, stops top to bottom. */
 export function RouteStrip({

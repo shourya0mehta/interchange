@@ -914,3 +914,76 @@ a.brand {
     stroke-dashoffset: 0;
   }
 }
+
+/* ---- Screen and step changes: the old one fades out, then the new one fades in -------- */
+
+.swap {
+  min-height: 0;
+}
+
+.swap-screen {
+  height: 100%;
+}
+
+.swap-view {
+  height: 100%;
+}
+
+.swap-enter {
+  animation: swap-in var(--motion-md) var(--ease-enter) both;
+}
+
+.swap-leave {
+  animation: swap-out var(--motion-sm) var(--ease-exit) both;
+  pointer-events: none;
+}
+
+@keyframes swap-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes swap-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---- Thumb-sized targets on touch screens ----------------------------------------- */
+
+a.brand {
+  min-height: 44px;
+}
+
+.board-q a {
+  display: inline-block;
+  padding: 10px 0;
+  border-bottom: 0;
+  text-decoration: underline;
+  text-decoration-color: #5b6064;
+  text-underline-offset: 4px;
+}
+
+.board-q a:hover {
+  text-decoration-color: var(--white);
+}
+
+@media (pointer: coarse) {
+  .maplibregl-ctrl-group button {
+    width: 44px;
+    height: 44px;
+  }
+  .maplibregl-ctrl-attrib-button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .maplibregl-ctrl-attrib a {
+    display: inline-block;
+    padding: 12px 2px;
+  }
+  .landing-foot a {
+    display: inline-block;
+    padding: 12px 0;
+  }
+}

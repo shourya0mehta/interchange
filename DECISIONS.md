@@ -35,5 +35,17 @@ Nominatim intermittently answers busy requests without CORS headers. The lookup 
 ## Point history searches year by year
 A single date-sorted search capped at a few hundred results stopped a 2018-to-2026 chart at 2021. One search per year, then an even thinning to 80 scenes, covers the whole range.
 
+## The preview size follows how a dataset is tiled
+One fixed 3,000 km² cap made an ocean question impossible and a state-wide MODIS map pointless. Each dataset now declares how much area its live preview reads: OISST is one global quarter-degree file per day, so a whole ocean costs one read; Sentinel-2 comes in 110 km tiles, so it stays at a county. The planner ranks routes by how much of the place each can show, unless the question asks for fields, farms or streets, where detail wins.
+
+## MODIS flag layers are read on their native grid
+The MODIS snow and fire COGs on Planetary Computer have averaged overviews: snow (200) and no snow (25) blur into values like 112, and a lone fire pixel (8) averages away. Counting looks reads full resolution, which is why those previews stop at 250,000 to 400,000 km². Class maps (CDL, CCI, IO) were checked to keep exact codes in their overviews.
+
+## Places are read without capital letters
+The first reader found places as runs of capitalized words, so "atlantic ocean" or "fresno county california" found nothing. It now removes words that describe what or when (a fixed vocabulary), keeps place nouns next to what's left ("Lake", "County"), and scores the runs. Oceans, seas and big informal regions come from a gazetteer, since a street geocoder answers them with a point; boxes stay west of the date line because the grid can't wrap.
+
+## Photon while typing, Nominatim when planning
+The read-back looks the place up as you type. Nominatim's usage policy rules out lookups as you type, so that goes to Photon (built for it), with a ranking that prefers counties, cities, lakes and parks over a cemetery or office that shares the name. Photon hides counties behind same-named parks unless asked with `layer=county`. Planning reuses what the read-back found, and only asks Nominatim when it found nothing.
+
 ## Light, printed transit design
 Black signage band, cool paper, Overpass (drawn from Highway Gothic), one color per Earth sphere. See DESIGN.md.

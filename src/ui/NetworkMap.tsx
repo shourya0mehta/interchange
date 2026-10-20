@@ -147,7 +147,8 @@ export function NetworkMap({
             ) : (
               <rect className="station-ring" x={x - 3} y={y0 - 14} width={6} height={14} fill="#fff" stroke={color} strokeWidth={2} />
             )}
-            <rect x={x - 46} y={Math.min(labelY - 14, y0 - 14)} width={92} height={Math.max(y1, labelY) - Math.min(labelY - 14, y0 - 14) + 6} fill="transparent" />
+            {/* A thumb-sized hit area around the station and its label. */}
+            <rect x={x - 46} y={Math.min(labelY - 18, y0 - 22)} width={92} height={Math.max(48, Math.max(y1, labelY) - Math.min(labelY - 18, y0 - 22) + 10)} fill="transparent" />
             <text className={`station-label${s.live ? '' : ' export'}`} x={x} y={labelY} textAnchor={anchor}>
               {shortName(s)}
             </text>

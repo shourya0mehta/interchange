@@ -138,6 +138,9 @@ export function AppRuntime({
   };
 
   const ramp = rampFor(spec.signal, domain ?? current?.domain);
+  // While data loads, the route's own stops show where it is: searching the catalog, then reading.
+  const working = status.state === 'loading' ? (/^(Reading|Read )/.test(status.message) ? 1 : 0) : spec.methods.length;
+  const stageOf = (i: number): 'done' | 'here' | 'ahead' => (i < working ? 'done' : i === working ? 'here' : 'ahead');
   const statRamp = changeValues && current ? changeRamp(current) : ramp;
   const fmt = (v: number) => formatValue(statRamp ?? {}, v);
   const sigName = SIGNAL_NAMES[spec.signal]?.short ?? spec.signal;
@@ -308,13 +311,13 @@ export function AppRuntime({
 
         <div className="app-section">
           <h3>How this map was made</h3>
-          <ol className="made">
-            <li>
+          <ol className="made" data-loading={status.state === 'loading' || undefined} aria-label={status.state === 'loading' ? `Working: ${status.message}` : undefined}>
+            <li data-stop={stageOf(-1)}>
               <strong>{station.name}</strong>
               {station.specs.resolution}, {station.specs.license}. {station.access.stac ? `STAC ${station.access.stac}` : ''}
             </li>
-            {spec.methods.map((m) => (
-              <li key={m}>
+            {spec.methods.map((m, i) => (
+              <li key={m} data-stop={stageOf(i)}>
                 <strong>{m === 'index' ? `${sigName}: ${INDICES[spec.signal]?.formula ?? ''}` : METHOD_BY_ID[m].name}</strong>
                 {m === 'find-scenes' ? spec.windows.map((w) => w.label).join(', ') : METHOD_BY_ID[m].does}
               </li>

@@ -112,13 +112,16 @@ function suggestions(intent: Intent, route: Route | undefined, routes: Route[], 
   // A before and after that can be differenced: offer the change first, it's usually the story.
   if (spec && spec.methods.includes('difference') && spec.windows.length === 2) out.push(spec.view === 'change' ? 'Show both dates' : 'Show only the change');
   const t = intent.time;
-  const y0 = Number((t.kind === 'snapshot' ? t.window.start : t.kind === 'history' ? t.range.start : t.windows[0].start).slice(0, 4));
-  const y1 = Number((t.kind === 'snapshot' ? t.window.start : t.kind === 'history' ? t.range.end : t.windows[t.windows.length - 1].start).slice(0, 4));
+  // Years from the route as built (a crop map that ends in 2021 was fitted there), not as asked.
+  const ws = route.windows;
+  const y0 = Number((t.kind === 'history' && route.historyRange ? route.historyRange.start : ws[0].start).slice(0, 4));
+  const y1 = Number((t.kind === 'history' && route.historyRange ? route.historyRange.end : ws[ws.length - 1].start).slice(0, 4));
   const st = STATION_BY_ID[route.station];
   const earliest = st.score.startYear;
-  if (t.kind === 'snapshot') out.push(`Compare with ${Math.max(earliest, y1 - 5)}`);
-  if (t.kind === 'compare' && y0 - 5 >= earliest) out.push(`Compare with ${y0 - 5} instead`);
-  if (t.kind !== 'yearly' && st.temporal !== 'static') out.push(`Make it a slider by year since ${Math.max(earliest, y1 - 6)}`);
+  const changes = st.temporal !== 'static';
+  if (changes && t.kind === 'snapshot' && Math.max(earliest, y1 - 5) < y1) out.push(`Compare with ${Math.max(earliest, y1 - 5)}`);
+  if (changes && t.kind === 'compare' && y0 - 5 >= earliest) out.push(`Compare with ${y0 - 5} instead`);
+  if (changes && t.kind !== 'yearly' && Math.max(earliest, y1 - 6) < y1) out.push(`Make it a slider by year since ${Math.max(earliest, y1 - 6)}`);
   if (!route.views.includes('click-chart') && (st.temporal === 'dense' || st.temporal === 'composite') && route.signal !== 'true-color') out.push('Add a history chart where I click');
   out.push('Zoom out');
   const alt = routes.find((r) => r.station !== route.station && r.runs === 'live');

@@ -31,16 +31,41 @@ describe('parseGoal', () => {
   });
 
   it('builds before and after windows around an event month', () => {
-    const i = parseGoal('Map flooding in Houston before and after August 2017', NOW);
+    const i = parseGoal('Map flooding in Tompkins County before and after July 2025', NOW);
     expect(i.theme).toBe('flood');
-    expect(i.place).toBe('Houston');
     expect(i.time.kind).toBe('compare');
     if (i.time.kind !== 'compare') return;
-    expect(i.time.windows[0].end).toBe('2017-07-31');
-    expect(i.time.windows[1].start).toBe('2017-08-01');
+    expect(i.time.windows[0].end).toBe('2025-06-30');
+    expect(i.time.windows[1].start).toBe('2025-07-01');
     // Only the month is known: "after" runs to the end of it, and the tags say so plainly.
-    expect(i.time.windows[1].end).toBe('2017-08-31');
-    expect(i.time.windows.map((w) => w.label)).toEqual(['Before August 2017', 'August 2017']);
+    expect(i.time.windows[1].end).toBe('2025-07-31');
+    expect(i.time.windows.map((w) => w.label)).toEqual(['Before July 2025', 'July 2025']);
+  });
+
+  it('recognises a known event from its month and place', () => {
+    const i = parseGoal('Map flooding in Houston before and after August 2017', NOW);
+    expect(i.place).toBe('Houston');
+    if (i.time.kind !== 'compare') throw new Error('expected a before and after');
+    expect(i.time.windows.map((w) => w.label)).toEqual(['Before Harvey', 'After Harvey']);
+    expect(i.time.windows[1].start).toBe('2017-08-27');
+    const fire = parseGoal('Burn severity in Paradise, California before and after November 2018', NOW);
+    if (fire.time.kind !== 'compare') throw new Error('expected a before and after');
+    expect(fire.time.windows[1]).toMatchObject({ label: 'After the Camp Fire', start: '2018-11-08' });
+  });
+
+  it('reads land cover over a span of years as its first year against its last', () => {
+    const i = parseGoal('Land cover around Atlanta from 1992 to 2020', NOW);
+    if (i.time.kind !== 'compare') throw new Error('expected a before and after');
+    expect(i.time.windows.map((w) => w.start.slice(0, 4))).toEqual(['1992', '2020']);
+  });
+
+  it('reads a decade as those ten years and rain as a whole year', () => {
+    const g = parseGoal('Greenness in the 1990s around Las Vegas', NOW);
+    expect(g.time.kind).toBe('history');
+    if (g.time.kind === 'history') expect(g.time.range).toEqual({ start: '1990-01-01', end: '1999-12-31' });
+    const r = parseGoal('Rainfall in Iowa, 2019 vs 2012', NOW);
+    if (r.time.kind !== 'compare') throw new Error('expected a before and after');
+    expect(r.time.windows.map((w) => [w.start, w.end])).toEqual([['2012-01-01', '2012-12-31'], ['2019-01-01', '2019-12-31']]);
   });
 
   it('puts a named storm\'s windows either side of the day it hit, first look after', () => {

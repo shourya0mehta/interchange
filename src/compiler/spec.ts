@@ -45,7 +45,8 @@ export function compileRoute(route: Route, question: string, now = new Date()): 
   const [w, s0, e, n] = route.aoi.bbox;
   if (!(e > w && n > s0)) return { spec: null, errors: ['Name a place in the goal first, so the app knows where to look.'] };
   const st = STATION_BY_ID[route.station];
-  const sig = SIGNAL_NAMES[route.signal]?.short ?? route.signal;
+  // The crop map's classes are crops, so call it that.
+  const sig = route.station === 'usda-cdl' ? 'Crops' : (SIGNAL_NAMES[route.signal]?.short ?? route.signal);
   return {
     errors: [],
     spec: {

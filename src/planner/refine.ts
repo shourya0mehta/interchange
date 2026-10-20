@@ -26,6 +26,7 @@ const SEASON_WORD: Record<string, string> = {
   growing: 'growing season',
   'early-spring': 'spring',
   'post-harvest': 'after harvest',
+  year: '',
 };
 
 const TIME_RE = /\b(1[89]\d\d|20\d\d)\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? (1[89]|20)\d\d\b|\b(summer|winter|spring|fall|autumn|growing season)\b|\b(this|last) (year|summer|winter|spring|fall|season)\b|\bright now\b|\bcurrently\b|\btoday\b|\bpast \w+ (years|decades?)\b|\b(19|20)\d0s\b|['’]\d\d\b/i;

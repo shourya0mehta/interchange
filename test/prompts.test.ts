@@ -48,7 +48,8 @@ const CASES: Case[] = [
   { q: 'Burn severity in Paradise, California before and after November 2018', place: 'paradise, california', theme: 'fire', top: 'sentinel-2', time: 'compare' },
   { q: 'camp fire burn scar', place: 'paradise, california', theme: 'fire', top: 'sentinel-2', time: 'compare' },
   { q: 'where did fires burn in california in 2020', place: 'california', theme: 'fire', top: 'active-fire', signal: 'fire-frequency' },
-  { q: 'active fires in australia december 2019', place: 'australia', theme: 'fire', top: 'active-fire' },
+  // December 2019 in Australia is the Black Summer; the map goes where it burned.
+  { q: 'active fires in australia december 2019', place: 'new south wales', theme: 'fire', top: 'active-fire' },
   { q: 'wildfire hotspots near los angeles january 2025', place: 'los angeles', theme: 'fire', top: 'active-fire' },
   { q: 'how hot does phoenix get in july', place: 'phoenix', theme: 'heat', top: 'modis-lst' },
   { q: 'how cold was minnesota in january 2019', place: 'minnesota', theme: 'heat' },
@@ -82,7 +83,8 @@ const CASES: Case[] = [
   // ---- Ocean ----------------------------------------------------------------------------
   { q: 'i want sea surface temeprature, 1999-now, atlantic ocean', place: 'atlantic ocean', theme: 'ocean', top: 'oisst', signal: 'sst', time: 'history' },
   { q: 'sst in the gulf of mexico last summer', place: 'gulf of mexico', theme: 'ocean', top: 'oisst' },
-  { q: 'marine heatwave off the coast of california 2015', place: 'california', theme: 'ocean', top: 'oisst', signal: 'sst-anomaly' },
+  // Off the coast is the ocean, not the state.
+  { q: 'marine heatwave off the coast of california 2015', place: 'california coast', theme: 'ocean', top: 'oisst', signal: 'sst-anomaly' },
   { q: 'el nino pacific ocean temperature anomaly 2023', place: 'eastern pacific ocean', theme: 'ocean', top: 'oisst', signal: 'sst-anomaly' },
   { q: 'coral bleaching risk on the great barrier reef 2024', place: 'great barrier reef', theme: 'ocean', top: 'oisst', signal: 'sst-anomaly' },
   { q: 'ocean temperature in monterey bay', place: 'monterey bay', theme: 'ocean', top: 'oisst' },

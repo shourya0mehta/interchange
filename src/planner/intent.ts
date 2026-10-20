@@ -1,6 +1,6 @@
 import type { TimeWindow } from '../runtime/layers';
 import type { ComponentId } from '../network/types';
-import { eventIn, regionIn } from './gazetteer';
+import { EVENTS, eventIn, regionIn } from './gazetteer';
 
 /** What the person is asking about, independent of which dataset answers it. */
 export type Theme =
@@ -56,7 +56,7 @@ export const THEME_WORDS: Record<Theme, string> = {
   ocean: 'ocean temperature',
 };
 
-export type Season = 'summer' | 'winter' | 'spring' | 'fall' | 'growing' | 'early-spring' | 'post-harvest';
+export type Season = 'summer' | 'winter' | 'spring' | 'fall' | 'growing' | 'early-spring' | 'post-harvest' | 'year';
 
 export interface Intent {
   text: string;
@@ -163,6 +163,8 @@ export function seasonWindow(season: Season, year: number): TimeWindow {
       return { label: `After harvest ${year}`, start: iso(year, 10, 20), end: iso(year, 12, 10) };
     case 'winter':
       return { label: `Winter ${year}-${String(year + 1).slice(2)}`, start: iso(year, 12, 1), end: iso(year + 1, 2, lastDay(year + 1, 2)) };
+    case 'year':
+      return { label: String(year), start: iso(year, 1, 1), end: iso(year, 12, 31) };
   }
 }
 
@@ -187,6 +189,8 @@ function latestSeasonYear(season: Season, now: Date): number {
   const w = seasonWindow(season, y);
   const today = now.toISOString().slice(0, 10);
   if (season === 'winter') return today >= iso(y, 12, 20) ? y : y - 1;
+  // A whole year is the last one that has ended.
+  if (season === 'year') return y - 1;
   return today >= addDays(w.start, 21) ? y : y - 1;
 }
 
@@ -207,10 +211,13 @@ function detectSeason(text: string, theme: Theme): Season | null {
   return null;
 }
 
-function defaultSeason(theme: Theme): Season {
+function defaultSeason(theme: Theme, text = ''): Season {
   if (theme === 'snow') return 'winter';
   if (theme === 'cover-crop') return 'early-spring';
-  if (theme === 'fire') return 'summer';
+  // Rain in a year means the year's total; fires burn into the fall, so a year of fires is the
+  // whole year. Burn scars still read best in a summer window.
+  if (theme === 'rain') return 'year';
+  if (theme === 'fire' && !/\b(burn(ed)? (scars?|severity|area)|nbr|before and after)\b/i.test(text)) return 'year';
   return 'summer';
 }
 
@@ -242,8 +249,13 @@ function parseYears(text: string, now: Date): ParsedTime {
     const b = Number(rangeM[2]);
     out.range = [Math.min(a, b), Math.max(a, b)];
   }
-  const decade = /\b(?:the )?(1[89]\d0|20[0-2]0)'?s\b/.exec(t);
-  if (decade && !out.range && !out.since) out.since = Number(decade[1]);
+  // "Since the 1990s" starts there; "in the 1990s" is those ten years.
+  const decade = /\b(since |from |after )?(?:the )?(1[89]\d0|20[0-2]0)'?s\b/.exec(t);
+  if (decade && !out.range && !out.since) {
+    const d = Number(decade[2]);
+    if (decade[1]) out.since = d;
+    else out.range = [d, Math.min(d + 9, now.getUTCFullYear())];
+  }
   const WORDS: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fifteen: 15, twenty: 20, thirty: 30, forty: 40, fifty: 50 };
   const past = /\b(?:past|last|previous) (\d{1,2}|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|fifty) years\b/.exec(t);
   if (past && !out.range && !out.since) out.since = now.getUTCFullYear() - (Number(past[1]) || WORDS[past[1]]);
@@ -273,7 +285,7 @@ export function parseTime(
   now: Date,
 ): { time: Intent['time']; season: Season | null } {
   const season = detectSeason(text, theme);
-  const s = season ?? defaultSeason(theme);
+  const s = season ?? defaultSeason(theme, text);
   const p = parseYears(text, now);
   // "Snowpack in 2023" is the winter that ended in 2023, unless the text names both years ("2022-23").
   if (s === 'winter' && !/\b(1[89]|20)\d\d ?[-–/] ?\d\d\b(?!\d)/.test(text)) {
@@ -310,8 +322,10 @@ export function parseTime(
     const startYear = first ?? last - 5;
     const years: number[] = [];
     for (let y = startYear; y <= last; y++) years.push(y);
-    const step = Math.ceil(years.length / 8);
-    const picked = years.filter((_, i) => i % step === 0 || i === years.length - 1).slice(-8);
+    // At most eight maps, always including the first and last years asked for.
+    const step = Math.max(1, Math.ceil((years.length - 1) / 7));
+    const picked = years.filter((_, i) => i % step === 0);
+    if (picked[picked.length - 1] !== years[years.length - 1]) picked.push(years[years.length - 1]);
     return { time: { kind: 'yearly', windows: picked.map((y) => clampEnd(seasonWindow(s, y), now)) }, season };
   }
 
@@ -323,6 +337,13 @@ export function parseTime(
       return { time: { kind: 'compare', windows: [monthWindow(m1.m, m1.y), clampEnd(monthWindow(m2.m, m2.y), now)] }, season };
     }
     return { time: { kind: 'compare', windows: [seasonWindow(s, a === b ? b - 1 : a), clampEnd(seasonWindow(s, b), now)] }, season };
+  }
+
+  // Land cover, built area, forest loss and crops change between maps, not along a chart: a span
+  // of years is its first year against its last.
+  if (!historyAsked && (p.since !== null || p.range !== null) && (theme === 'landcover' || theme === 'built' || theme === 'forest-loss' || theme === 'crop-type')) {
+    const a = first ?? last - 6;
+    return { time: { kind: 'compare', windows: [seasonWindow(s, a === last ? last - 1 : a), clampEnd(seasonWindow(s, last), now)] }, season };
   }
 
   if (historyAsked || p.since !== null || p.range !== null) {
@@ -354,7 +375,7 @@ export function parseTime(
  */
 const NOT_PLACE = new Set(
   `a an the i me my mine we us our you your it its they them their this that these those there here
-  want wants wanted need needs like would could should can will please let help show shows showing see seeing look looks looking
+  want wants wanted need needs like would could should can will please let help show shows showing see seeing look looks looking active
   map maps mapping compare compared comparing comparison find track tracking watch monitor monitoring measure measuring
   make build give get tell chart charting plot plotting display visualize view viewing explore analyze analyse study
   is are was were be been being has have had did do does done happen happened happening going go
@@ -529,7 +550,7 @@ export function placeCandidates(text: string): PlaceCandidate[] {
     }
   }
   out.sort((a, b) => b.score - a.score);
-  if (region) out.unshift({ text: region.name, score: 50 });
+  if (region && !region.country) out.unshift({ text: region.name, score: 50 });
   // Distinct, best first.
   const seen = new Set<string>();
   return out.filter((c) => {
@@ -621,20 +642,29 @@ export function parseGoal(text: string, now: Date = new Date()): Intent {
       matched.push(m[0]);
     }
   }
-  if (/\bsince (19|20)\d\d\b/i.test(text) && !views.includes('time-slider') && !views.includes('swipe') && !views.includes('click-chart')) {
+  const mapsChange = theme === 'landcover' || theme === 'built' || theme === 'forest-loss' || theme === 'crop-type';
+  if (/\bsince (19|20)\d\d\b/i.test(text) && !mapsChange && !views.includes('time-slider') && !views.includes('swipe') && !views.includes('click-chart')) {
     views.push('click-chart');
   }
   const parsedTime = parseTime(text, theme, views, now);
   const season = parsedTime.season;
   let time = parsedTime.time;
   // A named event with a known day gets windows on either side of that day: the first look
-  // after a flood, a longer one after a fire.
-  if (ev?.date && ev.short && rewrote && time.kind === 'compare') {
-    const before: TimeWindow = { label: `Before ${ev.short}`, start: addDays(ev.date, -75), end: addDays(ev.date, -1) };
+  // after a flood, a longer one after a fire. "Houston before and after August 2017" is Harvey
+  // too: a month and a place that match a known event get its day.
+  const lower = original.toLowerCase();
+  const known =
+    ev?.date && ev.short && rewrote
+      ? ev
+      : !ev && time.kind === 'compare' && /^Before /.test(time.windows[0].label)
+        ? EVENTS.find((e) => e.date && e.short && time.kind === 'compare' && e.month === time.windows[1].start.slice(0, 7) && lower.includes(e.place.split(',')[0].toLowerCase()))
+        : undefined;
+  if (known?.date && known.short && time.kind === 'compare') {
+    const before: TimeWindow = { label: `Before ${known.short}`, start: addDays(known.date, -75), end: addDays(known.date, -1) };
     const after: TimeWindow =
       theme === 'flood'
-        ? { label: `After ${ev.short}`, start: ev.date, end: addDays(ev.date, 14), prefer: 'earliest' }
-        : { label: `After ${ev.short}`, start: ev.date, end: addDays(ev.date, 60) };
+        ? { label: `After ${known.short}`, start: known.date, end: addDays(known.date, 14), prefer: 'earliest' }
+        : { label: `After ${known.short}`, start: known.date, end: addDays(known.date, 60) };
     time = { kind: 'compare', windows: [before, clampEnd(after, now)] };
   }
   // Words inside the event's own name aren't the place: "eaton fire" isn't Eaton County, and

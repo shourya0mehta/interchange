@@ -136,7 +136,7 @@ function candidatesFor(intent: Intent): Candidate[] {
     if (hit) c = [hit, ...c.filter((x) => x !== hit)];
   };
   if (intent.theme === 'ocean') {
-    if (/anomal|marine heat ?waves?|heat ?waves?|warmer than|cooler than|above normal|below normal|bleach|el ni|la ni|unusual/i.test(text)) {
+    if (/anomal|marine heat ?waves?|heat ?waves?|warmer than|cooler than|above normal|below normal|(against|vs\.?|versus|compared (to|with)|than|from|relative to) (the )?(normal|average|usual)|bleach|el ni|la ni|unusual/i.test(text)) {
       c = c.map((x) => (x.station === 'oisst' ? { ...x, signal: 'sst-anomaly' } : x));
     }
     // OISST is the skin of the sea; questions about what lies beneath go to the floats.
@@ -262,7 +262,11 @@ function chooseViews(st: Station, intent: Intent, output: 'scene' | 'raster' | '
     const c = COMPONENT_BY_ID[v];
     if (!c || views.includes(v)) continue;
     if (!c.accepts.includes(output)) {
-      notes.push(`${c.name} isn't offered on ${output === 'image' ? 'true color' : 'this layer'}.`);
+      notes.push(
+        output === 'image'
+          ? `A true-color picture has no values to ${c.id === 'region-stats' ? 'add up, so there are no area totals' : `read, so there's no ${c.name.toLowerCase()}`}.`
+          : `${c.name} can't be shown for this layer.`,
+      );
       continue;
     }
     if (c.temporal && (st.temporal === 'static' || st.temporal === 'in-situ')) {
@@ -445,8 +449,10 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
     if (capped?.capped) {
       route.warnings.unshift(`${place!.name} is bigger than ${st.name} can preview quickly, so the live map covers its central ${Math.round(cap).toLocaleString('en-US')} km². The Earth Engine version covers all of it.`);
     }
+    // Notes that only hold for one way of looking: radar's wind caveat, burn severity's timing.
     const note = THEME_NOTES[intent.theme];
-    if (note) route.warnings.unshift(note);
+    const applies = intent.theme === 'water' ? st.id === 'sentinel-1' : intent.theme === 'fire' ? c.signal === 'nbr' : true;
+    if (note && applies) route.warnings.unshift(note);
     const check = checkRoute(route);
     if (!check.ok) {
       skipped.push({ station: st.id, reason: check.errors[0] });

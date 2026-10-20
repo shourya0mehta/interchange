@@ -229,7 +229,7 @@ const EXTRA_RAMPS = {
       { at: 1, color: '#7a0f12' },
     ],
     units: 'Share of 8-day periods with a fire detected',
-    low: 'once',
+    low: 'rarely',
     high: 'often',
     transparentBelow: 0.0001,
     format: 'percent',

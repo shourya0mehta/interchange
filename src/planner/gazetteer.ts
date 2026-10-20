@@ -11,6 +11,11 @@ export interface Region {
   bbox: Bbox;
   /** Shown under the route when the box is a compromise. */
   note?: string;
+  /**
+   * A country's mainland. Used when the country itself is the place ("land cover of the
+   * Netherlands"), never ahead of a town named with it ("Amsterdam, Netherlands").
+   */
+  country?: true;
 }
 
 export const REGIONS: Region[] = [
@@ -97,6 +102,21 @@ export const REGIONS: Region[] = [
   { name: 'Africa', re: /(?<!south )\bafrica\b/i, bbox: [-18, -35, 52, 37.5] },
   { name: 'Europe', re: /\beurope\b/i, bbox: [-25, 34, 45, 71] },
   { name: 'Middle East', re: /\bmiddle east\b/i, bbox: [34, 12, 63, 42] },
+  // Countries whose official extent reaches far-off islands, which would put the box's center in
+  // the ocean (the Netherlands reaches the Caribbean, Australia reaches Heard Island).
+  { name: 'Netherlands', re: /\b(the )?netherlands\b|\bholland\b(?!,? (mi|michigan))/i, bbox: [3.3, 50.75, 7.23, 53.56], country: true },
+  { name: 'France', re: /(?<!new )\bfrance\b/i, bbox: [-5.2, 41.3, 9.6, 51.1], country: true },
+  { name: 'Australia', re: /(?<!(western|south) )\baustralia\b/i, bbox: [112.9, -43.7, 153.7, -10.6], country: true },
+  { name: 'New Zealand', re: /\bnew zealand\b/i, bbox: [166.3, -47.4, 178.6, -34.3], country: true },
+  { name: 'Norway', re: /\bnorway\b/i, bbox: [4.5, 57.9, 31.2, 71.2], country: true },
+  { name: 'Denmark', re: /\bdenmark\b/i, bbox: [8, 54.5, 15.3, 57.8], country: true },
+  { name: 'Portugal', re: /\bportugal\b/i, bbox: [-9.6, 36.9, -6.1, 42.2], country: true },
+  { name: 'Spain', re: /\bspain\b/i, bbox: [-9.4, 35.9, 3.4, 43.8], country: true },
+  { name: 'Ecuador', re: /\becuador\b/i, bbox: [-81.1, -5.1, -75.2, 1.5], country: true },
+  { name: 'Chile', re: /\bchile\b/i, bbox: [-75.7, -56, -66.4, -17.5], country: true },
+  { name: 'United Kingdom', re: /\b(the )?(united kingdom|uk|great britain|britain)\b/i, bbox: [-8.2, 49.9, 1.8, 58.7], country: true },
+  // California's coast: the ocean off it, not a street named Coast.
+  { name: 'California coast', re: /\b(coast of|off) (southern |northern |central )?california\b|\bcalifornia('s)? coast(line)?\b/i, bbox: [-126, 32.3, -117, 42] },
   { name: 'Lower 48 US states', re: /\blower 48\b|\b(the )?(contiguous|continental|lower 48|lower forty[- ]eight)( us| united states| states)\b|\b(the )?(united states|usa)\b|\bu\.s\.(a\.)?|\b(across|in|of|over|throughout) (the )?us\b|(?<!(south|central|north|latin|of) )\bamerica\b(?! (fork|falls))/i, bbox: [-125, 24.3, -66.9, 49.5] },
 ];
 
@@ -137,7 +157,7 @@ export const EVENTS: EventRef[] = [
   { name: 'Marshall Fire', re: /\bmarshall fire\b/i, month: '2021-12', place: 'Louisville, Colorado', date: '2021-12-30', short: 'the Marshall Fire' },
   { name: 'Palisades Fire', re: /\bpalisades fire\b/i, month: '2025-01', place: 'Pacific Palisades, Los Angeles', date: '2025-01-07', short: 'the Palisades Fire' },
   { name: 'Eaton Fire', re: /\beaton fire\b/i, month: '2025-01', place: 'Altadena, California', date: '2025-01-07', short: 'the Eaton Fire' },
-  { name: 'Black Summer fires', re: /\bblack summer\b|\baustralian? (bush)?fires\b/i, month: '2019-12', place: 'New South Wales' },
+  { name: 'Black Summer fires', re: /\bblack summer\b|\baustralian? (bush)?fires\b|\b(bush)?fires? in australia\b/i, month: '2019-12', place: 'New South Wales' },
   { name: 'Pakistan floods', re: /\bpakistan floods?\b|\bfloods? in pakistan\b/i, month: '2022-08', place: 'Sindh, Pakistan', date: '2022-08-25', short: 'the floods' },
   { name: 'Iowa derecho', re: /\bderecho\b/i, month: '2020-08', place: 'Cedar Rapids, Iowa', date: '2020-08-10', short: 'the derecho' },
 ];

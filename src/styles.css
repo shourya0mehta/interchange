@@ -1265,3 +1265,18 @@ a {
     display: none;
   }
 }
+
+/* MapLibre's "use Ctrl + scroll" hint waits a second, then takes a second to leave. Keep it brief. */
+.maplibregl-cooperative-gesture-screen {
+  background: rgba(18, 21, 24, 0.55);
+  font-family: var(--display);
+  transition: opacity var(--motion-md) var(--ease-exit) 600ms;
+}
+.maplibregl-cooperative-gesture-screen.maplibregl-show {
+  transition: opacity var(--motion-sm) var(--ease-enter);
+}
+
+/* The network map is drawn when it nears the screen; let it arrive instead of popping in. */
+.network svg {
+  animation: fade-in var(--motion-lg) var(--ease-enter);
+}

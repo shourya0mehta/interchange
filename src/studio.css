@@ -1362,3 +1362,8 @@ a.btn {
   font-size: 14px;
   padding: 6px 12px;
 }
+
+/* Suggested changes arrive with the app they belong to. */
+.follow-tips {
+  animation: fade-in var(--motion-md) var(--ease-enter);
+}

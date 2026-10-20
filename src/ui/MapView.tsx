@@ -147,7 +147,10 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
     });
     return () => {
       clearTimeout(slow);
-      a.remove();
+      // Tearing down a WebGL map is slow. When the whole view is leaving, let the next screen
+      // paint first; when only the area changed, the container is reused, so remove it now.
+      if (a.getContainer().isConnected) a.remove();
+      else setTimeout(() => a.remove(), 0);
       mapA.current = null;
       setReady(false);
       setTiles('idle');
@@ -169,7 +172,8 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
     });
     return () => {
       a.off('move', sync);
-      b.remove();
+      if (b.getContainer().isConnected) b.remove();
+      else setTimeout(() => b.remove(), 0);
       mapB.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

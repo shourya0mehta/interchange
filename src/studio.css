@@ -862,3 +862,28 @@ a.btn {
 .turn-you {
   overflow-wrap: anywhere;
 }
+
+/* The probe: the value under the cursor, written in highlighter. */
+.probe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  pointer-events: none;
+  display: grid;
+  gap: 1px;
+  background: var(--highlighter);
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  padding: 4px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.probe strong {
+  font-size: 13px;
+  font-weight: 600;
+}

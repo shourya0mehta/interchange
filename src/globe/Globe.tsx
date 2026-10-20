@@ -23,6 +23,8 @@ export interface GlobeProps {
   /** Swath width of the satellite drawn sweeping the planet, in km. */
   swathKm?: number;
   satelliteName?: string;
+  /** Aim the satellite so its next pass goes over this spot, about a second from now. */
+  task?: { lat: number; lon: number } | null;
   onHover?: (h: { lat: number; lon: number; sample: Sample; text: string; where: string } | null) => void;
   onPick?: (lat: number, lon: number, s: Sample) => void;
   /** Character cell width in CSS px; height is 1.6 times this. */
@@ -134,7 +136,22 @@ function prefersReducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, onHover, onPick, cell = 9, className = '', ariaLabel }: GlobeProps) {
+const INC = 98.2 * (Math.PI / 180);
+const NODE_RATE = 2.2 * (Math.PI / 180);
+const ARG_RATE = 30 * (Math.PI / 180);
+
+export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, task, onHover, onPick, cell = 9, className = '', ariaLabel }: GlobeProps) {
+  /** The orbit, as a node and an argument at a reference time; tasking re-aims it. */
+  const orbit = useRef({ node0: 1.2, u0: 0, t0: performance.now() });
+  useEffect(() => {
+    if (!task) return;
+    const phi = Math.max(-80, Math.min(80, task.lat)) * (Math.PI / 180);
+    const lam = task.lon * (Math.PI / 180);
+    const u = Math.asin(Math.sin(phi) / Math.sin(INC));
+    const node = lam - Math.atan2(Math.cos(INC) * Math.sin(u), Math.cos(u));
+    const lead = 1.0;
+    orbit.current = { node0: node + NODE_RATE * lead, u0: u - ARG_RATE * lead, t0: performance.now() };
+  }, [task?.lat, task?.lon]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const props = useRef({ focus, emphasis, swathKm, onHover, onPick });
   const scheduleRef = useRef<(() => void) | null>(null);
@@ -278,10 +295,11 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
       if (!earth) return;
 
       // Satellite: a sun-synchronous orbit (98.2°) whose ground track drifts west each pass.
-      const t = (now - start) / 1000;
-      const inc = 98.2 * RAD;
-      const node = (-t * 2.2) * RAD + 1.2;
-      const u = (t * 30 * RAD) % (Math.PI * 2);
+      const o = orbit.current;
+      const t = (now - o.t0) / 1000;
+      const inc = INC;
+      const node = o.node0 - t * NODE_RATE;
+      const u = (((o.u0 + t * ARG_RATE) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
       const pole: [number, number, number] = [Math.sin(inc) * Math.sin(node), -Math.sin(inc) * Math.cos(node), Math.cos(inc)];
       const axisA: [number, number, number] = [Math.cos(node), Math.sin(node), 0];
       const axisB: [number, number, number] = [pole[1] * axisA[2] - pole[2] * axisA[1], pole[2] * axisA[0] - pole[0] * axisA[2], pole[0] * axisA[1] - pole[1] * axisA[0]];

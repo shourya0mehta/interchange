@@ -48,3 +48,11 @@ describe('Place lookup when the services are down', () => {
     setFetcher(fetch);
   }, 10_000);
 });
+
+describe('Photon ranking for countries', () => {
+  it('prefers the country over a neighborhood that shares its English name', () => {
+    const country = { properties: { name: 'বাংলাদেশ', type: 'country', osm_key: 'place', osm_value: 'country', country: 'Bangladesh', extent: [88, 26.6, 92.7, 20.7] as [number, number, number, number] }, geometry: { coordinates: [90, 24] as [number, number] } };
+    const quarter = { properties: { name: 'Bangladesh', type: 'locality', osm_key: 'place', osm_value: 'quarter', country: 'Kenya', state: 'Mombasa' }, geometry: { coordinates: [39.6, -4] as [number, number] } };
+    expect(photonScore(country, 'bangladesh')).toBeGreaterThan(photonScore(quarter, 'bangladesh'));
+  });
+});

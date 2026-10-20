@@ -161,8 +161,14 @@ export function Landing() {
     document.title = 'Interchange: satellite maps from a sentence';
   }, []);
 
+  const [task, setTask] = useState<{ lat: number; lon: number } | null>(null);
+  // Pressing Build tasks the satellite: it swings round to pass over the place, then the studio opens.
   const build = (q: string) => {
-    location.hash = `build?q=${encodeURIComponent(q)}`;
+    const p = live.place;
+    const go = () => (location.hash = `build?q=${encodeURIComponent(q)}`);
+    if (!p || reducedMotion()) return go();
+    setTask({ lat: (p.bbox[1] + p.bbox[3]) / 2, lon: (p.bbox[0] + p.bbox[2]) / 2 });
+    setTimeout(go, 1500);
   };
 
   return (
@@ -211,8 +217,8 @@ export function Landing() {
                 placeholder={demoOn ? typed : 'What should the map show, and where?'}
                 autoComplete="off"
               />
-              <button className="btn btn-primary btn-go" type="submit">
-                <span>Build this map</span>
+              <button className="btn btn-primary btn-go" type="submit" aria-busy={!!task}>
+                <span>{task ? 'Tasking the satellite' : 'Build this map'}</span>
               </button>
             </form>
             <ReadBackSign back={live.back} status={live.status} idPrefix="hero" layout="compact" />
@@ -220,6 +226,7 @@ export function Landing() {
           <figure className="home-globe">
             <Globe
               {...g}
+              task={task}
               cell={9}
               onHover={(h) => setHover(h ? `${h.text}. ${h.where}` : '')}
               onPick={(lat, lon) => {

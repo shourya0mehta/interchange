@@ -3,7 +3,8 @@ import { composeImage, type ExportFormat, type ExportLegend } from './exportImag
 import { creditLine } from '../compiler/credit';
 import type { AppSpec } from '../compiler/spec';
 import { METHOD_BY_ID, SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
-import { makeGrid } from '../runtime/geo';
+import { lonLatToMerc, makeGrid } from '../runtime/geo';
+import { LANDCOVER_CLASSES } from '../runtime/colormap';
 import { formatValue, rampColorAt } from '../runtime/colormap';
 import { differenceLayer, evaluateLayer, type LayerResult, type TimeWindow } from '../runtime/layers';
 import { pointSeries, type SeriesResult } from '../runtime/series';
@@ -161,6 +162,36 @@ export function AppRuntime({
   const sigName = SIGNAL_NAMES[spec.signal]?.short ?? spec.signal;
   const windowLabel = swipe ? `${spec.windows[0].label} and ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label;
   const captureRef = useRef<(() => Promise<HTMLCanvasElement[]>) | null>(null);
+  const [hoverAt, setHoverAt] = useState<{ lonLat: [number, number]; side: 'before' | 'after' } | null>(null);
+  const probe = useMemo(() => {
+    if (!hoverAt) return null;
+    const layer = swipe && !change && hoverAt.side === 'before' ? before : current;
+    if (!layer) return null;
+    const [lon, lat] = hoverAt.lonLat;
+    const g = layer.grid;
+    const [mx, my] = lonLatToMerc(lon, lat);
+    const col = Math.floor(((mx - g.merc[0]) / (g.merc[2] - g.merc[0])) * g.width);
+    const row = Math.floor(((g.merc[3] - my) / (g.merc[3] - g.merc[1])) * g.height);
+    const where = `${Math.abs(lat).toFixed(3)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(3)}°${lon >= 0 ? 'E' : 'W'}`;
+    if (col < 0 || row < 0 || col >= g.width || row >= g.height) return null;
+    const vals = changeValues && layer === current ? changeValues : layer.values;
+    const v = vals[row * g.width + col];
+    let text: string;
+    if (layer.kind === 'rgb') text = 'True color';
+    else if (Number.isNaN(v)) text = 'No clear view';
+    else if (layer.kind === 'categorical') text = (LANDCOVER_CLASSES[layer.recipe.station] ?? []).find((c) => c.value === v)?.label ?? `Class ${v}`;
+    else text = `${fmt(v)} ${changeValues ? 'change' : sigName}`;
+    return (
+      <>
+        <strong>{text}</strong>
+        <span>
+          {where}
+          {swipe && !change ? `, ${hoverAt.side === 'before' ? spec.windows[0].label : spec.windows[1].label}` : ''}
+        </span>
+      </>
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoverAt, current, before, changeValues]);
   if (apiRef)
     apiRef.current = {
       exportImage: async (format) => {
@@ -203,6 +234,8 @@ export function AppRuntime({
       onClick={chartable ? runSeries : undefined}
       clickable={chartable}
       captureRef={captureRef}
+      onHover={(h) => setHoverAt(h ? { lonLat: h.lonLat, side: h.side } : null)}
+      probe={probe}
     />
   );
 

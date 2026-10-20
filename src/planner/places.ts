@@ -78,7 +78,11 @@ export function photonScore(f: PhotonFeature, query: string): number {
   score += GOOD_KEYS[p.osm_key ?? ''] ?? 0;
   if (p.osm_key === 'leisure' && /park|nature_reserve/.test(p.osm_value ?? '')) score += 1;
   if (p.osm_key === 'boundary' && p.osm_value === 'national_park') score += 1;
-  if (name === head || (p.type === 'county' && name === core)) score += 4;
+  // Photon names countries in their own language ("বাংলাদেশ"), so also match the English
+  // country or state field; otherwise a neighborhood called Bangladesh in Mombasa wins.
+  const own = p.type === 'country' ? (p.country ?? '') : p.type === 'state' ? (p.state ?? '') : '';
+  if (own && own.toLowerCase() === head) score += 5;
+  else if (name === head || (p.type === 'county' && name === core)) score += 4;
   else if (name.startsWith(head) || head.startsWith(name)) score += 1;
   // "Ithaca NY", "Fresno County, California": the rest of the phrase should match the state or country.
   const tail = query.toLowerCase().replace(head, '');
@@ -93,7 +97,9 @@ function photonPlace(f: PhotonFeature, query: string): Place {
   // Photon extents are [west, north, east, south]; points without one get a ~10 km box.
   const e = p.extent;
   const bbox: Bbox = e ? [e[0], e[3], e[2], e[1]] : [x - 0.06, y - 0.045, x + 0.06, y + 0.045];
-  const base = p.type === 'county' && p.name && !/\b(county|parish|borough)\b/i.test(p.name) && /\bcounty\b/i.test(query) ? `${p.name} County` : p.name;
+  const english = p.type === 'country' ? p.country : p.type === 'state' ? p.state : undefined;
+  const base =
+    english ?? (p.type === 'county' && p.name && !/\b(county|parish|borough)\b/i.test(p.name) && /\bcounty\b/i.test(query) ? `${p.name} County` : p.name);
   const name = [base, p.type === 'country' || p.type === 'state' ? null : p.state].filter(Boolean).join(', ') || query;
   return { name, bbox };
 }

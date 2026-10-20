@@ -18,6 +18,10 @@ export interface MapViewProps {
   clickable?: boolean;
   /** Filled with a function that grabs the map's pixels (both sides when swiping). */
   captureRef?: React.MutableRefObject<(() => Promise<HTMLCanvasElement[]>) | null>;
+  /** The cursor over the map: where, and which side of the swipe it's on. */
+  onHover?: (h: { lonLat: [number, number]; x: number; y: number; side: 'before' | 'after' } | null) => void;
+  /** Drawn at the cursor, e.g. the value under it. */
+  probe?: React.ReactNode;
 }
 
 function grab(m: MlMap): Promise<HTMLCanvasElement> {
@@ -34,7 +38,7 @@ function grab(m: MlMap): Promise<HTMLCanvasElement> {
   });
 }
 
-export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef }: MapViewProps) {
+export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef, onHover, probe }: MapViewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const aRef = useRef<HTMLDivElement>(null);
   const bRef = useRef<HTMLDivElement>(null);
@@ -42,11 +46,18 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
   const mapB = useRef<MlMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const [pos, setPos] = useState(0.5);
+  useEffect(() => {
+    posRef.current = pos;
+  }, [pos]);
   const [ready, setReady] = useState(false);
   const [tiles, setTiles] = useState<'idle' | 'loading' | 'error'>('idle');
   const swipe = beforeUrl !== undefined;
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
+  const hoverRef = useRef(onHover);
+  hoverRef.current = onHover;
+  const posRef = useRef(0.5);
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   if (captureRef)
     captureRef.current = async () => {
       const out: HTMLCanvasElement[] = [];
@@ -68,6 +79,31 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
     const a = createMap(aRef.current!, bbox);
     mapA.current = a;
     a.on('click', (e) => clickRef.current?.([e.lngLat.lng, e.lngLat.lat]));
+    // Fine pointers only: on touch, a probe under the finger just gets in the way.
+    const fine = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
+    if (fine) {
+      // One update per frame, however fast the mouse moves.
+      let frame = 0;
+      let last: { lng: number; lat: number; x: number; y: number } | null = null;
+      a.on('mousemove', (e) => {
+        last = { lng: e.lngLat.lng, lat: e.lngLat.lat, x: e.point.x, y: e.point.y };
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          if (!last) return;
+          const w = a.getContainer().clientWidth || 1;
+          setCursor({ x: last.x, y: last.y });
+          hoverRef.current?.({ lonLat: [last.lng, last.lat], x: last.x, y: last.y, side: last.x / w < posRef.current ? 'before' : 'after' });
+        });
+      });
+      a.on('mouseout', () => {
+        last = null;
+        cancelAnimationFrame(frame);
+        frame = 0;
+        setCursor(null);
+        hoverRef.current?.(null);
+      });
+    }
     // Say so when tiles take a while, and when they fail, instead of a blank map.
     let slow: ReturnType<typeof setTimeout> | undefined;
     a.on('dataloading', () => {
@@ -182,6 +218,11 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
   return (
     <div className="map-wrap" ref={wrapRef}>
       <div className="map" ref={aRef} data-testid="map" />
+      {probe && cursor && (
+        <div className="probe" style={{ transform: `translate(${cursor.x + 14}px, ${cursor.y + 14}px)` }} aria-hidden="true">
+          {probe}
+        </div>
+      )}
       {downlink > 0 && (
         <div className="downlink" key={downlink} aria-hidden="true" onAnimationEnd={(e) => e.animationName === "downlink" && setDownlink(0)}>
           <div className="downlink-mask" />

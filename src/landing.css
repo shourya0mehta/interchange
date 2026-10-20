@@ -958,7 +958,7 @@ a.brand {
 
 .board-q a {
   display: inline-block;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 0;
   text-decoration: underline;
   text-decoration-color: #5b6064;
@@ -970,6 +970,22 @@ a.brand {
 }
 
 @media (pointer: coarse) {
+  .btn-link,
+  .route-title button {
+    padding-top: 13px;
+    padding-bottom: 13px;
+  }
+  /* Short words like "Edit" need width too; the negative margin keeps the text where it was. */
+  .btn-link {
+    padding-left: 11px;
+    padding-right: 11px;
+    margin-left: -11px;
+    margin-right: -11px;
+  }
+  .example,
+  .board-q a {
+    min-height: 46px;
+  }
   .maplibregl-ctrl-group button {
     width: 44px;
     height: 44px;
@@ -985,5 +1001,6 @@ a.brand {
   .landing-foot a {
     display: inline-block;
     padding: 12px 0;
+    min-height: 46px;
   }
 }

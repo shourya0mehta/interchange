@@ -23,10 +23,24 @@ function coordsPlace(query: string): Place | null {
 
 const cache = new Map<string, Promise<Place | null>>();
 
+/** Thrown when the lookup services themselves fail, as opposed to not knowing the place. */
+export class LookupDown extends Error {
+  constructor() {
+    super("Place lookup isn't answering right now");
+    this.name = 'LookupDown';
+  }
+}
+
+/** Remembers whether the last answer from a service was a failure rather than "no such place". */
+let lastFailed = { nominatim: false, photon: false };
+
 function once(query: string, signal?: AbortSignal): Promise<Place | null> {
   const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
   return getFetcher()(url, { signal, headers: { Accept: 'application/json' } })
-    .then((r) => (r.ok ? r.json() : []))
+    .then((r) => {
+      lastFailed.nominatim = !r.ok;
+      return r.ok ? r.json() : [];
+    })
     .then((rows: { display_name: string; boundingbox: [string, string, string, string] }[]) => {
       const row = rows[0];
       if (!row) return null;
@@ -34,7 +48,11 @@ function once(query: string, signal?: AbortSignal): Promise<Place | null> {
       const bbox: Bbox = [w, s, e, n];
       return { name: row.display_name.split(',').slice(0, 2).join(',').trim(), bbox };
     })
-    .catch(() => null);
+    .catch((e) => {
+      if ((e as Error).name === 'AbortError') throw e;
+      lastFailed.nominatim = true;
+      return null;
+    });
 }
 
 interface PhotonFeature {
@@ -86,20 +104,30 @@ function photon(query: string, signal?: AbortSignal, minScore = 3): Promise<Plac
   const layer = /\b(county|parish|borough)\b/i.test(query) ? '&layer=county' : '';
   const url = `https://photon.komoot.io/api/?limit=8&q=${encodeURIComponent(query)}${layer}`;
   return getFetcher()(url, { signal })
-    .then((r) => (r.ok ? r.json() : { features: [] }))
+    .then((r) => {
+      lastFailed.photon = !r.ok;
+      return r.ok ? r.json() : { features: [] };
+    })
     .then((j: { features: PhotonFeature[] }) => {
       const ranked = j.features.map((f) => ({ f, s: photonScore(f, query) })).sort((a, b) => b.s - a.s);
       const best = ranked[0];
       return best && best.s >= minScore ? photonPlace(best.f, query) : null;
     })
-    .catch(() => null);
+    .catch((e) => {
+      if ((e as Error).name === 'AbortError') throw e;
+      lastFailed.photon = true;
+      return null;
+    });
 }
 
 async function lookup(query: string, signal?: AbortSignal): Promise<Place | null> {
+  lastFailed = { nominatim: false, photon: false };
   const first = await once(query, signal);
   if (first) return first;
   const second = await photon(query, signal);
   if (second) return second;
+  // Both services failed outright (not "no such place"): say so now rather than after retries.
+  if (lastFailed.nominatim && lastFailed.photon) throw new LookupDown();
   // Nominatim asks for at most one request a second; wait before the retry.
   await new Promise((r) => setTimeout(r, 1100));
   const third = await once(query, signal);
@@ -147,7 +175,10 @@ export const nominatim: Geocoder = (query, signal) => {
   let p = cache.get(key);
   if (!p) {
     p = lookup(query, signal).then((v) => (v ? { ...v, bbox: atLeast(v.bbox) } : v));
-    p.then((v) => v === null && cache.delete(key));
+    p.then(
+      (v) => v === null && cache.delete(key),
+      () => cache.delete(key),
+    );
     cache.set(key, p);
   }
   return p;

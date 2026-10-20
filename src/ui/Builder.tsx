@@ -144,7 +144,15 @@ export function Builder({ forkToken, initialGoal, initialStation }: { forkToken:
       const phrases = [intent.place, ...intent.places].filter((x): x is string => !!x);
       // The read-back already found it while typing: plan on the same place it showed.
       const previewed = live.status.state === 'found' && t === goal.trim() ? live.status.place : null;
-      const found = chosenPlace ? { place: chosenPlace } : previewed ? { place: previewed } : phrases.length ? await geocodeFirst(nominatim, phrases) : null;
+      let found: { place: Place } | null = null;
+      try {
+        found = chosenPlace ? { place: chosenPlace } : previewed ? { place: previewed } : phrases.length ? await geocodeFirst(nominatim, phrases) : null;
+      } catch (e) {
+        if ((e as Error).name !== 'LookupDown') throw e;
+        setErr(`Place lookup isn't answering right now, so "${intent.place}" couldn't be found. Try again in a moment, or pick it on the map.`);
+        setRetryGoal(t);
+        return;
+      }
       const place = found?.place ?? null;
       if (phrases.length && !place) {
         // Stay where we are, and offer the map: the place may just be spelled in a way the lookup doesn't know.

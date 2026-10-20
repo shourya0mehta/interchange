@@ -24,3 +24,27 @@ describe('Photon ranking', () => {
     expect(photonScore(f('Story County Storage', 'house', 'building', 'yes', 'Iowa'), 'story county iowa')).toBeLessThan(3);
   });
 });
+
+describe('Place lookup when the services are down', () => {
+  it('says so at once instead of retrying', async () => {
+    const { nominatim } = await import('../src/planner/places');
+    const { setFetcher } = await import('../src/runtime/stac');
+    let calls = 0;
+    setFetcher((async () => {
+      calls++;
+      return new Response('busy', { status: 503 });
+    }) as typeof fetch);
+    const t0 = Date.now();
+    await expect(nominatim('Somewhere Unusual County, Iowa')).rejects.toMatchObject({ name: 'LookupDown' });
+    expect(Date.now() - t0).toBeLessThan(500);
+    expect(calls).toBe(2);
+    setFetcher(fetch);
+  });
+  it('still answers "not found" when the services are up', async () => {
+    const { nominatim } = await import('../src/planner/places');
+    const { setFetcher } = await import('../src/runtime/stac');
+    setFetcher((async (u: string) => new Response(String(u).includes('photon') ? '{"features":[]}' : '[]', { status: 200 })) as unknown as typeof fetch);
+    await expect(nominatim('Nowhere At All')).resolves.toBeNull();
+    setFetcher(fetch);
+  }, 10_000);
+});

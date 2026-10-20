@@ -1,22 +1,29 @@
 :root {
-  --paper: #f5f6f3;
-  --paper-2: #eceee9;
-  --ink: #222629;
-  --mute: #6b7177;
-  --rule: #d7dad4;
-  --black: #000;
+  /* Pushbroom: a satellite's printout. Fog paper, ink, one cobalt scan line, a highlighter. */
+  --fog: #e7eaec;
+  --paper: #eceef0;
+  --paper-2: #e1e5e8;
+  --surface: #f7f8f8;
+  --ink: #121518;
+  --mute: #5e656c;
+  --rule: #cbd0d4;
+  --black: #121518;
   --white: #fff;
-  --atmosphere: #d4a017;
-  --biosphere: #2e8b3e;
-  --hydrosphere: #1f64b5;
-  --cryosphere: #2ba3b8;
-  --lithosphere: #b4532a;
-  --good: #2e7a3c;
+  --cobalt: #1d3fd6;
+  --cobalt-ink: #1531b0;
+  --highlighter: #e4ee4a;
+  --atmosphere: #c99512;
+  --biosphere: #2d6a3e;
+  --hydrosphere: #2c66b0;
+  --cryosphere: #2a97ad;
+  --lithosphere: #a9512a;
+  --good: #2d6a3e;
   --bad: #a4471f;
-  --focus: #1f64b5;
-  --band-h: 64px;
-  --font: 'Overpass', system-ui, sans-serif;
-  --mono: 'Overpass Mono', ui-monospace, monospace;
+  --focus: #1d3fd6;
+  --band-h: 60px;
+  --font: 'IBM Plex Sans', system-ui, sans-serif;
+  --display: 'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
   --t-13: 13px;
   --t-15: 15px;
   --t-18: 18px;
@@ -63,7 +70,7 @@ button {
 }
 
 a {
-  color: var(--hydrosphere);
+  color: var(--cobalt);
 }
 
 :focus-visible {

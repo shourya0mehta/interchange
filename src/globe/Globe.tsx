@@ -33,8 +33,8 @@ export interface GlobeProps {
 
 // ---- Palette: inks on paper ------------------------------------------------------------
 export const INK = {
-  paper: '#F3F2EE',
-  ink: '#1B1E22',
+  paper: '#ECEEF0',
+  ink: '#121518',
   crop: '#B98B10',
   forest: '#2D6A3E',
   grass: '#7E8F3E',
@@ -44,7 +44,8 @@ export const INK = {
   bare: '#A9814E',
   water: '#2C66B0',
   snow: '#6F9DBA',
-  swath: '#D2462C',
+  swath: '#1D3FD6',
+  highlight: '#E4EE4A',
 };
 const GLYPH: Record<number, string> = { 1: '=', 2: '#', 3: ';', 4: '.', 5: '%', 6: '@', 7: ':', 8: '~', 9: '*' };
 const COLOR: Record<number, string> = {
@@ -148,7 +149,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
       return;
     }
     const span = focus.bbox ? Math.max(focus.bbox[2] - focus.bbox[0], focus.bbox[3] - focus.bbox[1]) : 10;
-    const zoom = Math.max(1, Math.min(2.6, 40 / Math.max(span, 8)));
+    const zoom = Math.max(1, Math.min(1.45, 60 / Math.max(span, 20)));
     v.target = { lon: focus.lon, lat: Math.max(-60, Math.min(60, focus.lat)), zoom, t0: performance.now(), from: { lon: v.lon, lat: v.lat, zoom: v.zoom } };
     v.vLon = 0;
     v.vLat = 0;
@@ -184,7 +185,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
       canvas.width = Math.round(r.width * dpr);
       canvas.height = Math.round(r.height * dpr);
       const cw = r.width < 420 ? Math.max(6, cell - 2) : cell;
-      atlas = new Atlas(cw, cw * 1.6, dpr, `${cw * 1.32}px "Overpass Mono", ui-monospace, monospace`);
+      atlas = new Atlas(cw, cw * 1.6, dpr, `${cw * 1.3}px "IBM Plex Mono", ui-monospace, monospace`);
       schedule();
     };
     const ro = new ResizeObserver(resize);
@@ -338,9 +339,10 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
             bold = fresh > 0.55;
           }
           if (inBox) {
-            ctx.fillStyle = INK.ink;
+            // The place in the question, marked with a highlighter.
+            ctx.fillStyle = INK.highlight;
             ctx.fillRect(c * cw, r * ch, cw, ch);
-            color = s.group === 0 ? '#9EC1E6' : '#F3F2EE';
+            color = INK.ink;
             alpha = 1;
           }
           ctx.drawImage(atlas.get(glyph, color, alpha, bold, inBox ? 0 : s.group === 0 ? 0.14 : 0.2), c * cw, r * ch, cw, ch);
@@ -370,7 +372,7 @@ export function Globe({ focus, emphasis = 'none', swathKm = 290, satelliteName, 
         ctx.strokeRect(-5, -5, 10, 10);
         ctx.restore();
         if (satelliteName) {
-          ctx.font = `600 12px Overpass, system-ui, sans-serif`;
+          ctx.font = `600 12px "IBM Plex Sans Condensed", system-ui, sans-serif`;
           ctx.fillStyle = INK.ink;
           ctx.textBaseline = 'middle';
           ctx.fillText(satelliteName, sp.x + 12, sp.y);

@@ -87,7 +87,8 @@ export function refine(prev: Intent, text: string, now: Date = new Date()): Refi
     views = tv;
     changes.push(`Dates: ${describeTime(time)}`);
   }
-  if (viewsSaid.length) changes.push(`Shows: ${views.filter((v) => v !== 'download').join(', ').replace('time-slider', 'a map for each year').replace('click-chart', 'click for history').replace('swipe', 'before and after swipe').replace('region-stats', 'area totals')}`);
+  const sameViews = views.length === prev.views.length && views.every((x) => prev.views.includes(x));
+  if (viewsSaid.length && !sameViews) changes.push(`Shows: ${views.filter((v) => v !== 'download').join(', ').replace('time-slider', 'a map for each year').replace('click-chart', 'click for history').replace('swipe', 'before and after swipe').replace('region-stats', 'area totals')}`);
 
   // Place.
   const scale = ZOOM_OUT.test(said) ? 3 : ZOOM_IN.test(said) ? 1 / 3 : null;

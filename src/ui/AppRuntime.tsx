@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { composeImage, type ExportFormat, type ExportLegend } from './exportImage';
+import { creditLine } from '../compiler/credit';
 import type { AppSpec } from '../compiler/spec';
 import { METHOD_BY_ID, SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
 import { makeGrid } from '../runtime/geo';
@@ -14,6 +16,11 @@ import { stationColor } from './colors';
 
 type Status = { state: 'idle' } | { state: 'loading'; message: string } | { state: 'error'; message: string };
 
+/** What the studio can ask of a running app. */
+export interface AppApi {
+  exportImage: (format: ExportFormat) => Promise<Blob>;
+}
+
 
 export function AppRuntime({
   spec,
@@ -21,12 +28,20 @@ export function AppRuntime({
   actions,
   onTitle,
   onFork,
+  onSpec,
+  apiRef,
+  openUrl,
 }: {
   spec: AppSpec;
-  mode: 'builder' | 'published';
+  mode: 'builder' | 'published' | 'embed';
   actions?: ReactNode;
   onTitle?: (title: string) => void;
   onFork?: () => void;
+  /** Builder only: notes and questions edited in place. */
+  onSpec?: (s: AppSpec) => void;
+  apiRef?: MutableRefObject<AppApi | null>;
+  /** Embed only: where "Open in Interchange" goes. */
+  openUrl?: string;
 }) {
   const station = STATION_BY_ID[spec.station];
   const color = stationColor(station);
@@ -145,6 +160,105 @@ export function AppRuntime({
   const fmt = (v: number) => formatValue(statRamp ?? {}, v);
   const sigName = SIGNAL_NAMES[spec.signal]?.short ?? spec.signal;
   const windowLabel = swipe ? `${spec.windows[0].label} and ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label;
+  const captureRef = useRef<(() => Promise<HTMLCanvasElement[]>) | null>(null);
+  if (apiRef)
+    apiRef.current = {
+      exportImage: async (format) => {
+        const maps = (await captureRef.current?.()) ?? [];
+        const lg: ExportLegend =
+          legend && legend.kind === 'ramp'
+            ? { kind: 'ramp', title: legend.title, ramp: legend.ramp }
+            : legend && legend.kind === 'classes'
+              ? { kind: 'classes', title: legend.title, classes: legend.classes.map((c) => ({ label: c.label, color: c.color })) }
+              : { kind: 'none' };
+        const labels = swipe && !change ? [spec.windows[0].label, spec.windows[1].label] : [change ? `Change, ${spec.windows[0].label} to ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label];
+        return composeImage(spec, swipe && !change ? maps : maps.slice(-1), lg, labels, format);
+      },
+    };
+
+  const readerNotes = (spec.notes || spec.questions?.length) && mode !== 'builder' && (
+    <div className="app-section reader-notes">
+      {spec.notes && <p className="app-notes">{spec.notes}</p>}
+      {spec.questions && spec.questions.some((q) => q.trim()) && (
+        <>
+          <h3>Questions to explore</h3>
+          <ol className="app-questions">
+            {spec.questions.filter((q) => q.trim()).map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ol>
+        </>
+      )}
+    </div>
+  );
+
+  const mapView = (
+    <MapView
+      bbox={spec.aoi.bbox}
+      corners={corners}
+      url={url}
+      beforeUrl={swipe && !change ? (beforeUrl ?? null) : undefined}
+      labels={swipe && !change ? [spec.windows[0].label, spec.windows[1].label] : undefined}
+      marker={point}
+      onClick={chartable ? runSeries : undefined}
+      clickable={chartable}
+      captureRef={captureRef}
+    />
+  );
+
+  if (mode === 'embed') {
+    return (
+      <div className="embed" style={{ ['--route-color' as string]: color }}>
+        <div className="map-wrap">{mapView}</div>
+        <div className="embed-card">
+          <h1 className="embed-title">{spec.title}</h1>
+          <p className="embed-when">{windowLabel}</p>
+          {slider && (
+            <input
+              type="range"
+              min={0}
+              max={spec.windows.length - 1}
+              value={winIdx}
+              aria-label="Period"
+              aria-valuetext={spec.windows[winIdx].label}
+              onChange={(e) => setWinIdx(Number(e.target.value))}
+            />
+          )}
+          {legend && legend.kind === 'ramp' && (
+            <>
+              <div className="legend-ramp" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 11 }, (_, i) => rampColorAt(legend.ramp, i / 10)).join(', ')})` }} />
+              <div className="legend-ends">
+                <span>{formatValue(legend.ramp, legend.ramp.domain[0])}</span>
+                <span>{formatValue(legend.ramp, legend.ramp.domain[1])}</span>
+              </div>
+            </>
+          )}
+          {legend && legend.kind === 'classes' && (
+            <ul className="classes classes-compact">
+              {legend.classes.slice(0, 6).map((c) => (
+                <li key={c.value}>
+                  <span className="swatch" style={{ background: c.color }} />
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+          )}
+          {spec.notes && <p className="app-notes">{spec.notes}</p>}
+        </div>
+        {status.state === 'loading' && (
+          <div className="loading embed-loading" role="status">
+            {status.message}
+          </div>
+        )}
+        <p className="embed-credit">
+          {creditLine(spec)}{' '}
+          <a href={openUrl} target="_blank" rel="noreferrer">
+            Open in Interchange
+          </a>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="app" style={{ ['--route-color' as string]: color }}>
@@ -156,6 +270,30 @@ export function AppRuntime({
           <h1 className="app-title">{spec.title}</h1>
         )}
         <p className="app-question">“{spec.question}”</p>
+        {readerNotes}
+        {mode === 'builder' && onSpec && (
+          <details className="app-section for-readers" open={!!(spec.notes || spec.questions?.length)}>
+            <summary>
+              <h3>Notes for readers</h3>
+            </summary>
+            <label className="field">
+              What should people notice?
+              <textarea rows={2} value={spec.notes ?? ''} placeholder="The flooded area spread east of the ship channel." onChange={(e) => onSpec({ ...spec, notes: e.target.value || undefined })} />
+            </label>
+            <label className="field">
+              Questions to explore, one per line
+              <textarea
+                rows={3}
+                value={(spec.questions ?? []).join('\n')}
+                placeholder={'Where did the water reach first?\nWhich neighborhoods stayed dry?'}
+                onChange={(e) => {
+                  const qs = e.target.value.split('\n').map((q) => q.trimStart());
+                  onSpec({ ...spec, questions: qs.some((q) => q.trim()) ? qs : undefined });
+                }}
+              />
+            </label>
+          </details>
+        )}
 
         {slider && (
           <div className="app-section">
@@ -361,16 +499,7 @@ export function AppRuntime({
       </section>
 
       <div className="map-wrap">
-        <MapView
-          bbox={spec.aoi.bbox}
-          corners={corners}
-          url={url}
-          beforeUrl={swipe && !change ? (beforeUrl ?? null) : undefined}
-          labels={swipe && !change ? [spec.windows[0].label, spec.windows[1].label] : undefined}
-          marker={point}
-          onClick={chartable ? runSeries : undefined}
-          clickable={chartable}
-        />
+        {mapView}
         {status.state === 'loading' && (
           <div className="loading" role="status">
             {status.message}

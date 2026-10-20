@@ -1,4 +1,5 @@
 import type { ReadBack, PlaceStatus } from './readback';
+import { SplitFlap } from './SplitFlap';
 
 /**
  * The platform sign under the question: what Interchange heard, cell by cell. Empty, it shows
@@ -35,12 +36,12 @@ export function ReadBackSign({
     <dl className={`heard heard-${layout}`} data-empty={empty || undefined} aria-label="What Interchange heard">
       <div className="heard-cell">
         <dt>What</dt>
-        <dd>{back ? back.what : 'Greenness, floods, fire, snow, heat, crops, ocean temperature'}</dd>
+        <dd>{back ? <SplitFlap text={back.what} /> : 'Greenness, floods, fire, snow, heat, crops, ocean temperature'}</dd>
       </div>
       <div className="heard-cell heard-where" data-state={status.state}>
         <dt>Where</dt>
         <dd>
-          {back ? (status.state === 'found' ? status.place.name : (back.where ?? 'Add a place')) : 'A county, city, lake, ocean or coordinates'}
+          {back ? <SplitFlap text={status.state === 'found' ? status.place.name : (back.where ?? 'Add a place')} /> : 'A county, city, lake, ocean or coordinates'}
           {whereNote && (
             <span className="heard-note" id={`${idPrefix}-where`} aria-live="polite">
               {whereNote}
@@ -58,7 +59,7 @@ export function ReadBackSign({
       </div>
       <div className="heard-cell">
         <dt>When</dt>
-        <dd>{back ? back.when : 'A season, a year, 2019 vs 2025, since 1999'}</dd>
+        <dd>{back ? <SplitFlap text={back.when} /> : 'A season, a year, 2019 vs 2025, since 1999'}</dd>
       </div>
       <div className="heard-cell">
         <dt>Via</dt>
@@ -66,7 +67,7 @@ export function ReadBackSign({
           {back?.via ? (
             <>
               <span className="line-badge" style={{ background: back.via.color }} aria-hidden="true" />
-              {back.via.name}
+              <SplitFlap text={back.via.name} />
               {!back.via.live && <span className="heard-note">Exports to Earth Engine</span>}
             </>
           ) : back ? (
@@ -78,7 +79,7 @@ export function ReadBackSign({
       </div>
       <div className="heard-cell">
         <dt>Shows</dt>
-        <dd>{back ? back.shows : 'A swipe, a slider, a history chart or area totals'}</dd>
+        <dd>{back ? <SplitFlap text={back.shows} /> : 'A swipe, a slider, a history chart or area totals'}</dd>
       </div>
     </dl>
   );

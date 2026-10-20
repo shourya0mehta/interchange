@@ -23,6 +23,10 @@ export interface AppSpec {
   history?: { start: string; end: string };
   components: ComponentId[];
   createdAt: string;
+  /** What the author wants viewers to notice. */
+  notes?: string;
+  /** Questions for students or readers to answer from the map. */
+  questions?: string[];
 }
 
 export interface CompileResult {

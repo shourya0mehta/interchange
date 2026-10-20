@@ -16,9 +16,25 @@ export interface MapViewProps {
   marker: [number, number] | null;
   onClick?: (lonLat: [number, number]) => void;
   clickable?: boolean;
+  /** Filled with a function that grabs the map's pixels (both sides when swiping). */
+  captureRef?: React.MutableRefObject<(() => Promise<HTMLCanvasElement[]>) | null>;
 }
 
-export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable }: MapViewProps) {
+function grab(m: MlMap): Promise<HTMLCanvasElement> {
+  return new Promise((res) => {
+    m.once('render', () => {
+      const src = m.getCanvas();
+      const c = document.createElement('canvas');
+      c.width = src.width;
+      c.height = src.height;
+      c.getContext('2d')!.drawImage(src, 0, 0);
+      res(c);
+    });
+    m.triggerRepaint();
+  });
+}
+
+export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick, clickable, captureRef }: MapViewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const aRef = useRef<HTMLDivElement>(null);
   const bRef = useRef<HTMLDivElement>(null);
@@ -31,6 +47,20 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
   const swipe = beforeUrl !== undefined;
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
+  if (captureRef)
+    captureRef.current = async () => {
+      const out: HTMLCanvasElement[] = [];
+      if (mapA.current) out.push(await grab(mapA.current));
+      if (swipe && mapB.current) out.push(await grab(mapB.current));
+      return out;
+    };
+  // The moment new pixels land, a scan line sweeps down the map, like a downlink.
+  const [downlink, setDownlink] = useState(0);
+  const hadUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (url && url !== hadUrl.current) setDownlink((n) => n + 1);
+    hadUrl.current = url;
+  }, [url]);
 
   // Map A always exists. In swipe mode it shows the "before" layer on the left; map B
   // sits on top, clipped to the right of the divider, showing "after".
@@ -152,6 +182,11 @@ export function MapView({ bbox, corners, url, beforeUrl, labels, marker, onClick
   return (
     <div className="map-wrap" ref={wrapRef}>
       <div className="map" ref={aRef} data-testid="map" />
+      {downlink > 0 && (
+        <div className="downlink" key={downlink} aria-hidden="true" onAnimationEnd={(e) => e.animationName === "downlink" && setDownlink(0)}>
+          <div className="downlink-mask" />
+        </div>
+      )}
       <div className="map-notice" data-show={tiles !== 'idle'} role={tiles === 'error' ? 'alert' : 'status'} aria-hidden={tiles === 'idle'}>
         <span>{noticeText.current}</span>
         {tiles === 'error' && (

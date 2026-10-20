@@ -1,11 +1,17 @@
-import '@fontsource/overpass/400.css';
-import '@fontsource/overpass/600.css';
-import '@fontsource/overpass/700.css';
-import '@fontsource/overpass/800.css';
-import '@fontsource/overpass-mono/400.css';
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-sans/600.css';
+import '@fontsource/ibm-plex-sans/700.css';
+import '@fontsource/ibm-plex-sans-condensed/500.css';
+import '@fontsource/ibm-plex-sans-condensed/600.css';
+import '@fontsource/ibm-plex-sans-condensed/700.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/ibm-plex-mono/600.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
 import './landing.css';
+import './studio.css';
 import { GlobeLab } from './globe/GlobeLab';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -14,7 +20,7 @@ import { setUrlSigner } from './runtime/cog';
 import { signPlanetaryComputer } from './runtime/stac';
 import { Landing } from './landing/Landing';
 import { AppRuntime } from './ui/AppRuntime';
-import { Builder } from './ui/Builder';
+import { Studio } from './ui/Studio';
 import { Swap } from './ui/Swap';
 
 setUrlSigner(signPlanetaryComputer);
@@ -23,6 +29,7 @@ type Screen =
   | { kind: 'landing' }
   | { kind: 'lab' }
   | { kind: 'app'; token: string }
+  | { kind: 'embed'; token: string }
   | { kind: 'build'; fork: string | null; q: string | null; station: string | null };
 
 /** Hash routes, so the static site needs no server rewrites: #app=, #fork=, #build?q=, or the landing page. */
@@ -30,6 +37,7 @@ function readHash(): Screen {
   const h = location.hash.slice(1);
   if (h === 'lab-globe') return { kind: 'lab' };
   if (h.startsWith('app=')) return { kind: 'app', token: h.slice(4) };
+  if (h.startsWith('embed=')) return { kind: 'embed', token: h.slice(6) };
   if (h.startsWith('fork=')) return { kind: 'build', fork: h.slice(5), q: null, station: null };
   if (h === 'build' || h.startsWith('build?') || h.startsWith('build/')) {
     const params = new URLSearchParams(h.split('?')[1] ?? '');
@@ -58,6 +66,13 @@ function Published({ token }: { token: string }) {
   );
 }
 
+function Embedded({ token }: { token: string }) {
+  const spec = decodeSpec(token);
+  if (!spec) return <p style={{ padding: 16 }}>This embedded map's link is damaged.</p>;
+  document.title = `${spec.title} | Interchange`;
+  return <AppRuntime spec={spec} mode="embed" openUrl={`${location.origin}${location.pathname}#app=${token}`} />;
+}
+
 function Root() {
   const [screen, setScreen] = useState(readHash);
   useEffect(() => {
@@ -72,13 +87,14 @@ function Root() {
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  const key = screen.kind === 'app' ? `app|${screen.token}` : screen.kind === 'build' ? `build|${screen.fork}|${screen.q}|${screen.station}` : 'landing';
+  const key = screen.kind === 'app' || screen.kind === 'embed' ? `${screen.kind}|${screen.token}` : screen.kind === 'build' ? `build|${screen.fork}|${screen.q}|${screen.station}` : 'landing';
   let body;
   if (screen.kind === 'lab') body = <GlobeLab />;
   else if (screen.kind === 'app') body = <Published token={screen.token} />;
+  else if (screen.kind === 'embed') body = <Embedded token={screen.token} />;
   else if (screen.kind === 'build') {
-    document.title = 'Interchange builder';
-    body = <Builder forkToken={screen.fork} initialGoal={screen.q} initialStation={screen.station} />;
+    document.title = 'Interchange studio';
+    body = <Studio forkToken={screen.fork} initialGoal={screen.q} initialStation={screen.station} />;
   } else body = <Landing />;
   return (
     <Swap id={key} className="swap-screen">

@@ -288,9 +288,12 @@ export function parseTime(
   const eventMonth = p.months.length === 1 && /\b(before|after)\b/i.test(text) ? p.months[0] : null;
   if (eventMonth && (views.includes('swipe') || /before|after/i.test(text))) {
     const eventStart = iso(eventMonth.y, eventMonth.m, 1);
-    const before: TimeWindow = { label: `Before (${monthWindow(eventMonth.m, eventMonth.y).label})`, start: addDays(eventStart, -75), end: addDays(eventStart, -1) };
-    const afterSpan = theme === 'flood' ? 20 : 60;
-    const after = clampEnd({ label: `After (${monthWindow(eventMonth.m, eventMonth.y).label})`, start: eventStart, end: addDays(iso(eventMonth.y, eventMonth.m, lastDay(eventMonth.y, eventMonth.m)), afterSpan - 30) }, now);
+    // Only the month is known, so "after" is that whole month (newest first), plus a month more
+    // for scars that stay, like burns.
+    const month = monthWindow(eventMonth.m, eventMonth.y).label;
+    const before: TimeWindow = { label: `Before ${month}`, start: addDays(eventStart, -75), end: addDays(eventStart, -1) };
+    const monthEnd = iso(eventMonth.y, eventMonth.m, lastDay(eventMonth.y, eventMonth.m));
+    const after = clampEnd({ label: month, start: eventStart, end: theme === 'flood' ? monthEnd : addDays(monthEnd, 30) }, now);
     return { time: { kind: 'compare', windows: [before, after] }, season };
   }
 
@@ -570,11 +573,13 @@ export function parseGoal(text: string, now: Date = new Date()): Intent {
   const ev = eventIn(text);
   const original = text;
   const evYear = ev ? ev.month.slice(0, 4) : '';
+  let rewrote = false;
   const namesMonth = new RegExp(`\\b${MONTH_RE}\\b`, 'i').test(text);
   if (ev && !namesMonth && (!/\b(18|19|20)\d\d\b/.test(text) || new RegExp(`\\b${evYear}\\b`).test(text))) {
     const [y, m] = ev.month.split('-').map(Number);
     const month = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
     // Rain during a storm is that month's total; everything else is a before and after.
+    rewrote = true;
     text = /\b(rain\w*|precip\w*)\b/i.test(text) ? `${text} in ${month} ${y}` : `${text} before and after ${month} ${y}`;
   }
   let theme: Theme = 'vegetation';
@@ -619,7 +624,19 @@ export function parseGoal(text: string, now: Date = new Date()): Intent {
   if (/\bsince (19|20)\d\d\b/i.test(text) && !views.includes('time-slider') && !views.includes('swipe') && !views.includes('click-chart')) {
     views.push('click-chart');
   }
-  const { time, season } = parseTime(text, theme, views, now);
+  const parsedTime = parseTime(text, theme, views, now);
+  const season = parsedTime.season;
+  let time = parsedTime.time;
+  // A named event with a known day gets windows on either side of that day: the first look
+  // after a flood, a longer one after a fire.
+  if (ev?.date && ev.short && rewrote && time.kind === 'compare') {
+    const before: TimeWindow = { label: `Before ${ev.short}`, start: addDays(ev.date, -75), end: addDays(ev.date, -1) };
+    const after: TimeWindow =
+      theme === 'flood'
+        ? { label: `After ${ev.short}`, start: ev.date, end: addDays(ev.date, 14), prefer: 'earliest' }
+        : { label: `After ${ev.short}`, start: ev.date, end: addDays(ev.date, 60) };
+    time = { kind: 'compare', windows: [before, clampEnd(after, now)] };
+  }
   const places = placeCandidates(original)
     .map((c) => expandAlias(c.text))
     .filter((p) => !ev || !ev.re.test(p));

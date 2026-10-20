@@ -26,6 +26,11 @@ export interface TimeWindow {
   /** YYYY-MM-DD, inclusive. */
   start: string;
   end: string;
+  /**
+   * Which pictures in the window to use first. By default the clearest (or, where clouds don't
+   * matter, the newest). "earliest" is the first look after an event, before floodwater drains.
+   */
+  prefer?: 'earliest';
 }
 
 export interface LayerRecipe {
@@ -157,7 +162,9 @@ async function evaluateScene(
     signal: opts.signal,
   });
   let groups = groupByDay(items);
-  if (src.maxCloud === null) groups = groups.reverse();
+  if (src.maxCloud === null) {
+    if (window.prefer !== 'earliest') groups = groups.reverse();
+  }
   else groups.sort((a, b) => meanCloud(a) - meanCloud(b));
 
   const used: SceneUsed[] = [];

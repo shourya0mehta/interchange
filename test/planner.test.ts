@@ -38,6 +38,26 @@ describe('parseGoal', () => {
     if (i.time.kind !== 'compare') return;
     expect(i.time.windows[0].end).toBe('2017-07-31');
     expect(i.time.windows[1].start).toBe('2017-08-01');
+    // Only the month is known: "after" runs to the end of it, and the tags say so plainly.
+    expect(i.time.windows[1].end).toBe('2017-08-31');
+    expect(i.time.windows.map((w) => w.label)).toEqual(['Before August 2017', 'August 2017']);
+  });
+
+  it('puts a named storm\'s windows either side of the day it hit, first look after', () => {
+    const i = parseGoal('Map flooding in Houston before and after Hurricane Harvey', NOW);
+    if (i.time.kind !== 'compare') throw new Error('expected a before and after');
+    const [before, after] = i.time.windows;
+    expect(before).toMatchObject({ label: 'Before Harvey', end: '2017-08-26' });
+    expect(after).toMatchObject({ label: 'After Harvey', start: '2017-08-27', end: '2017-09-10', prefer: 'earliest' });
+  });
+
+  it('gives a named fire a longer after window, clearest first', () => {
+    const i = parseGoal('Burn scar from the Camp Fire', NOW);
+    if (i.time.kind !== 'compare') throw new Error('expected a before and after');
+    const [before, after] = i.time.windows;
+    expect(before.label).toBe('Before the Camp Fire');
+    expect(after).toMatchObject({ start: '2018-11-08', end: '2019-01-07' });
+    expect(after.prefer).toBeUndefined();
   });
 
   it('defaults to the latest finished season', () => {

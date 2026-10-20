@@ -59,7 +59,12 @@ export function AppRuntime({
   const grid = useMemo(() => makeGrid(spec.aoi.bbox, typeof window !== 'undefined' && window.innerWidth < 700 ? 640 : 900), [spec.aoi.bbox]);
   const corners = useMemo(() => gridCorners(grid), [grid]);
   const [winIdx, setWinIdx] = useState(spec.windows.length - 1);
-  const [change, setChange] = useState(false);
+  const [change, setChangeState] = useState(spec.view === 'change' && canChange);
+  // In the studio, the view on screen is the view that gets published.
+  const setChange = (v: boolean) => {
+    setChangeState(v);
+    if (mode === 'builder' && onSpec && (spec.view === 'change') !== v) onSpec({ ...spec, view: v ? 'change' : undefined });
+  };
   const [layers, setLayers] = useState<Record<string, LayerResult>>({});
   const [status, setStatus] = useState<Status>({ state: 'idle' });
   const [point, setPoint] = useState<[number, number] | null>(null);
@@ -67,7 +72,7 @@ export function AppRuntime({
   const [seriesStatus, setSeriesStatus] = useState<Status>({ state: 'idle' });
   const pending = useRef(new Map<string, Promise<LayerResult>>());
   // Results are keyed by everything that changes the pixels, so an edit never shows stale data.
-  const keyOf = (w: TimeWindow) => `${spec.station}|${spec.signal}|${spec.aoi.bbox.join(',')}|${w.start}/${w.end}`;
+  const keyOf = (w: TimeWindow) => `${spec.station}|${spec.signal}|${spec.aoi.bbox.join(',')}|${w.start}/${w.end}${w.prefer ? `|${w.prefer}` : ''}`;
 
   useEffect(() => {
     setLayers({});

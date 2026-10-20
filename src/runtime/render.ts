@@ -1,4 +1,4 @@
-import { CLASS_TITLES, LANDCOVER_CLASSES, RAMPS, changeRampFor, classesToRgba, rampToRgba, trueColorToRgba, type ClassEntry, type Ramp } from './colormap';
+import { CLASS_TITLES, LANDCOVER_CLASSES, RAMPS, RADAR_CHANGE_RAMP, changeRampFor, classesToRgba, rampToRgba, trueColorToRgba, type ClassEntry, type Ramp } from './colormap';
 import { gridPixelMeters, mercToLonLat, type Grid } from './geo';
 import type { LayerResult } from './layers';
 import type { Signal } from './sources';
@@ -16,6 +16,7 @@ export function rampFor(signal: Signal, domain?: [number, number]): Ramp | null 
 
 /** The ramp for after-minus-before maps of a layer. */
 export function changeRamp(result: LayerResult): Ramp {
+  if (result.recipe.signal === 'radar-vv') return RADAR_CHANGE_RAMP;
   const r = rampFor(result.recipe.signal, result.domain);
   return changeRampFor(r?.format, r ? r.domain[1] - r.domain[0] : 1);
 }

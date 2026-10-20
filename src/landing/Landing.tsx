@@ -44,8 +44,8 @@ const DEPARTURES: { q: string; place: Place }[] = [
 ];
 
 /** The three jobs Interchange is built for, each with a real app behind it. */
-type Stop = { q: string; place: Place; caption: string };
-const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; place: Place; shot: string; alt: string; notes?: string; questions?: string[]; journey?: { title: string; label: string; stops: Stop[] } }[] = [
+type Stop = { q: string; place: Place; caption: string; extra?: Partial<AppSpec> };
+const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; place: Place; shot: string; alt: string; notes?: string; questions?: string[]; view?: 'change'; journey?: { title: string; label: string; stops: Stop[] } }[] = [
   {
     id: 'newsroom',
     who: 'Newsrooms',
@@ -55,12 +55,13 @@ const JOBS: { id: string; who: string; job: string; gets: string[]; q: string; p
     place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] },
     shot: 'use-newsroom.jpg',
     alt: 'A news article with an embedded Interchange map of Houston flooding, before and after Hurricane Harvey',
-    notes: 'Dark areas east of downtown are standing water seen by radar through the storm clouds.',
+    notes: 'Blue marks ground where the radar echo dropped sharply between August 24 and August 29, 2017, a sign of standing water seen through the storm clouds. Look west of downtown, around the Barker Reservoir and along the creeks. Flooded streets often look brighter to radar, not darker, so the city center is undercounted.',
+    view: 'change',
     journey: {
       title: 'Harvey, from radar and rain gauges',
       label: 'Open a two-stop story',
       stops: [
-        { q: 'Map flooding in Houston before and after Hurricane Harvey', place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] }, caption: 'Radar sees through the storm. Swipe to after: the dark patches east of downtown are standing water.' },
+        { q: 'Map flooding in Houston before and after Hurricane Harvey', place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] }, caption: 'Radar sees through the storm clouds. Blue marks where the echo went dark between August 24 and 29: standing water, clearest around the Barker Reservoir west of downtown.', extra: { view: 'change' } },
         { q: 'How much did it rain in Houston during Hurricane Harvey', place: { name: 'Houston, Texas', bbox: [-95.79, 29.52, -95.01, 30.11] }, caption: 'NOAA’s gridded rain gauges for August 2017: over a meter of rain in the darkest cells, heaviest to the east.' },
       ],
     },
@@ -191,9 +192,9 @@ export function Landing() {
     const t = setTimeout(() => {
       cachedDeps = departures();
       cachedJobs = JOBS.map((j) => {
-        const stops = j.journey?.stops.map((s) => ({ spec: compile(s.q, s.place), caption: s.caption })).filter((s): s is { spec: AppSpec; caption: string } => !!s.spec);
+        const stops = j.journey?.stops.map((s) => ({ spec: compile(s.q, s.place, s.extra), caption: s.caption })).filter((s): s is { spec: AppSpec; caption: string } => !!s.spec);
         const journeyUrl = j.journey && stops && stops.length === j.journey.stops.length ? `#journey=${encodeJourney({ v: 1, title: j.journey.title, stops, createdAt: new Date().toISOString().slice(0, 10) })}` : null;
-        return { ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions }), journeyUrl };
+        return { ...j, spec: compile(j.q, j.place, { notes: j.notes, questions: j.questions, view: j.view }), journeyUrl };
       });
       setDeps(cachedDeps);
       setJobs(cachedJobs);

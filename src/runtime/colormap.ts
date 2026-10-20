@@ -161,9 +161,12 @@ const BASE_RAMPS = {
   },
   'radar-vv': {
     domain: [-25, 0],
+    // Open water reflects the radar away, so it reads below about -17 dB. Everything under that
+    // is drawn in blue and everything over it in greys, so new water stands out in a swipe.
     stops: [
-      { at: 0, color: '#0b2346' },
-      { at: 0.35, color: '#4a5d73' },
+      { at: 0, color: '#0d2a9c' },
+      { at: 0.3, color: '#2f63e0' },
+      { at: 0.32, color: '#5d656e' },
       { at: 0.7, color: '#b9bec4' },
       { at: 1, color: '#fbfaf6' },
     ],
@@ -257,6 +260,24 @@ export const CHANGE_RAMP: Ramp = {
   units: 'change',
   low: 'decrease',
   high: 'increase',
+};
+
+/**
+ * Radar echo after minus before, in dB. Ground that turned to standing water goes dark by 3 dB or
+ * more, so that end is a strong blue; small changes (speckle, crops, wind) fade to near white.
+ */
+export const RADAR_CHANGE_RAMP: Ramp = {
+  domain: [-9, 9],
+  stops: [
+    { at: 0, color: '#0d2a9c' },
+    { at: 0.28, color: '#2f63e0' },
+    { at: 0.36, color: '#dfe3ea' },
+    { at: 0.66, color: '#e6e3de' },
+    { at: 1, color: '#b39878' },
+  ],
+  units: 'Change in radar echo, dB',
+  low: 'darker: likely new water',
+  high: 'brighter',
 };
 
 export const LANDCOVER_CLASSES: Record<string, ClassEntry[]> = {

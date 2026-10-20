@@ -396,7 +396,7 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
       if (sig) cands = [{ station: named.id, signal: sig }, ...cands];
     }
   }
-  const wantsChange = intent.theme === 'forest-loss' || intent.theme === 'fire' || /\bchange|loss|lost|gain|warm(ed|ing)|cool(ed|ing)/i.test(intent.text);
+  const wantsChange = intent.theme === 'forest-loss' || intent.theme === 'fire' || intent.theme === 'flood' || /\bchange|loss|lost|gain|warm(ed|ing)|cool(ed|ing)/i.test(intent.text);
 
   const stations = cands.map((c) => STATION_BY_ID[c.station]).filter(Boolean);
   const routes: Route[] = [];

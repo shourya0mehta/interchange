@@ -27,6 +27,8 @@ export interface AppSpec {
   notes?: string;
   /** Questions for students or readers to answer from the map. */
   questions?: string[];
+  /** Opens on the change map (after minus before) instead of both dates. */
+  view?: 'change';
 }
 
 export interface CompileResult {

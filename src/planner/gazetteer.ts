@@ -117,25 +117,29 @@ export interface EventRef {
   month: string;
   /** Where it happened, used when the sentence names no place. */
   place: string;
+  /** The day it hit that place, YYYY-MM-DD, when one day matters (a landfall, an ignition). */
+  date?: string;
+  /** How a map tag names it: "Before Harvey", "After the Camp Fire". */
+  short?: string;
 }
 
 export const EVENTS: EventRef[] = [
-  { name: 'Hurricane Harvey', re: /\b(hurricane )?harvey\b/i, month: '2017-08', place: 'Houston, Texas' },
-  { name: 'Hurricane Katrina', re: /\b(hurricane )?katrina\b/i, month: '2005-08', place: 'New Orleans, Louisiana' },
-  { name: 'Hurricane Sandy', re: /\b(hurricane|superstorm) sandy\b/i, month: '2012-10', place: 'New York City' },
-  { name: 'Hurricane Maria', re: /\bhurricane maria\b/i, month: '2017-09', place: 'Puerto Rico' },
-  { name: 'Hurricane Ian', re: /\bhurricane ian\b/i, month: '2022-09', place: 'Fort Myers, Florida' },
-  { name: 'Hurricane Helene', re: /\b(hurricane )?helene\b/i, month: '2024-09', place: 'Asheville, North Carolina' },
-  { name: 'Hurricane Beryl', re: /\b(hurricane )?beryl\b/i, month: '2024-07', place: 'Houston, Texas' },
-  { name: 'Camp Fire', re: /\bcamp fire\b/i, month: '2018-11', place: 'Paradise, California' },
-  { name: 'Lahaina fire', re: /\b(lahaina|maui) (wild)?fires?\b/i, month: '2023-08', place: 'Lahaina, Hawaii' },
-  { name: 'Dixie Fire', re: /\bdixie fire\b/i, month: '2021-07', place: 'Plumas County, California' },
-  { name: 'Marshall Fire', re: /\bmarshall fire\b/i, month: '2021-12', place: 'Louisville, Colorado' },
-  { name: 'Palisades Fire', re: /\bpalisades fire\b/i, month: '2025-01', place: 'Pacific Palisades, Los Angeles' },
-  { name: 'Eaton Fire', re: /\beaton fire\b/i, month: '2025-01', place: 'Altadena, California' },
+  { name: 'Hurricane Harvey', re: /\b(hurricane )?harvey\b/i, month: '2017-08', place: 'Houston, Texas', date: '2017-08-27', short: 'Harvey' },
+  { name: 'Hurricane Katrina', re: /\b(hurricane )?katrina\b/i, month: '2005-08', place: 'New Orleans, Louisiana', date: '2005-08-29', short: 'Katrina' },
+  { name: 'Hurricane Sandy', re: /\b(hurricane|superstorm) sandy\b/i, month: '2012-10', place: 'New York City', date: '2012-10-29', short: 'Sandy' },
+  { name: 'Hurricane Maria', re: /\bhurricane maria\b/i, month: '2017-09', place: 'Puerto Rico', date: '2017-09-20', short: 'Maria' },
+  { name: 'Hurricane Ian', re: /\bhurricane ian\b/i, month: '2022-09', place: 'Fort Myers, Florida', date: '2022-09-28', short: 'Ian' },
+  { name: 'Hurricane Helene', re: /\b(hurricane )?helene\b/i, month: '2024-09', place: 'Asheville, North Carolina', date: '2024-09-27', short: 'Helene' },
+  { name: 'Hurricane Beryl', re: /\b(hurricane )?beryl\b/i, month: '2024-07', place: 'Houston, Texas', date: '2024-07-08', short: 'Beryl' },
+  { name: 'Camp Fire', re: /\bcamp fire\b/i, month: '2018-11', place: 'Paradise, California', date: '2018-11-08', short: 'the Camp Fire' },
+  { name: 'Lahaina fire', re: /\b(lahaina|maui) (wild)?fires?\b/i, month: '2023-08', place: 'Lahaina, Hawaii', date: '2023-08-08', short: 'the Lahaina fire' },
+  { name: 'Dixie Fire', re: /\bdixie fire\b/i, month: '2021-07', place: 'Plumas County, California', date: '2021-07-13', short: 'the Dixie Fire' },
+  { name: 'Marshall Fire', re: /\bmarshall fire\b/i, month: '2021-12', place: 'Louisville, Colorado', date: '2021-12-30', short: 'the Marshall Fire' },
+  { name: 'Palisades Fire', re: /\bpalisades fire\b/i, month: '2025-01', place: 'Pacific Palisades, Los Angeles', date: '2025-01-07', short: 'the Palisades Fire' },
+  { name: 'Eaton Fire', re: /\beaton fire\b/i, month: '2025-01', place: 'Altadena, California', date: '2025-01-07', short: 'the Eaton Fire' },
   { name: 'Black Summer fires', re: /\bblack summer\b|\baustralian? (bush)?fires\b/i, month: '2019-12', place: 'New South Wales' },
-  { name: 'Pakistan floods', re: /\bpakistan floods?\b|\bfloods? in pakistan\b/i, month: '2022-08', place: 'Sindh, Pakistan' },
-  { name: 'Iowa derecho', re: /\bderecho\b/i, month: '2020-08', place: 'Cedar Rapids, Iowa' },
+  { name: 'Pakistan floods', re: /\bpakistan floods?\b|\bfloods? in pakistan\b/i, month: '2022-08', place: 'Sindh, Pakistan', date: '2022-08-25', short: 'the floods' },
+  { name: 'Iowa derecho', re: /\bderecho\b/i, month: '2020-08', place: 'Cedar Rapids, Iowa', date: '2020-08-10', short: 'the derecho' },
 ];
 
 export function eventIn(text: string): EventRef | null {

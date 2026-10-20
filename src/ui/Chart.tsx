@@ -1,3 +1,4 @@
+import { formatValue, type Ramp } from '../runtime/colormap';
 import type { TimeWindow } from '../runtime/layers';
 import type { SeriesPoint } from '../runtime/series';
 
@@ -15,13 +16,16 @@ export function HistoryChart({
   windows,
   units,
   color,
+  format,
 }: {
   points: SeriesPoint[];
   domain: [number, number];
   windows: TimeWindow[];
   units: string;
   color: string;
+  format?: Ramp['format'];
 }) {
+  const label = (v: number) => (format ? formatValue({ format }, v).replace(' °C', '°') : Math.abs(hi - lo) > 20 ? String(Math.round(v)) : v.toFixed(1));
   if (!points.length) return null;
   const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
   const t0 = t(points[0].date);
@@ -53,7 +57,7 @@ export function HistoryChart({
         <g key={v}>
           <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="#d7dad4" />
           <text x={L - 5} y={y(v) + 3.5} textAnchor="end">
-            {Math.abs(hi - lo) > 20 ? Math.round(v) : v.toFixed(1)}
+            {label(v)}
           </text>
         </g>
       ))}
@@ -65,7 +69,7 @@ export function HistoryChart({
       <path d={path} fill="none" stroke="#9aa0a5" strokeWidth={1} />
       {points.map((p) => (
         <circle key={`${p.date}-${p.source}`} cx={x(p.date)} cy={y(p.value)} r={2.6} fill={color}>
-          <title>{`${p.date}: ${p.value.toFixed(3)}`}</title>
+          <title>{`${p.date}: ${format ? formatValue({ format }, p.value) : p.value.toFixed(3)}`}</title>
         </circle>
       ))}
     </svg>

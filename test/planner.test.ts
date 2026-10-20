@@ -104,8 +104,11 @@ describe('planRoutes', () => {
 
   it('caps large areas for the live preview', () => {
     const plan = planRoutes(parseGoal('Greenness in Iowa this summer', NOW), { name: 'Iowa', bbox: [-96.64, 40.38, -90.14, 43.5] });
-    expect(plan.routes[0].aoi.capped).toBe(true);
-    expect(plan.warnings.join(' ')).toMatch(/central 3,000 km²/);
+    // A state is too big for Sentinel-2's quick preview, so MODIS (which can show all of it) leads.
+    expect(plan.routes[0].station).toBe('modis-vi');
+    const s2 = plan.routes.find((r) => r.station === 'sentinel-2')!;
+    expect(s2.aoi.capped).toBe(true);
+    expect(s2.warnings.join(' ')).toMatch(/central 3,000 km²/);
   });
 });
 

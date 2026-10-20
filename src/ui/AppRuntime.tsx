@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AppSpec } from '../compiler/spec';
 import { METHOD_BY_ID, SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
 import { makeGrid } from '../runtime/geo';
-import { rampColorAt } from '../runtime/colormap';
+import { formatValue, rampColorAt } from '../runtime/colormap';
 import { differenceLayer, evaluateLayer, type LayerResult, type TimeWindow } from '../runtime/layers';
 import { pointSeries, type SeriesResult } from '../runtime/series';
-import { gridCorners, layerRgba, legendFor, pixelSizeLabel, rampFor, regionStats, toDataUrl } from '../runtime/render';
+import { changeRamp, gridCorners, layerRgba, legendFor, pixelSizeLabel, presentClasses, rampFor, regionStats, toDataUrl } from '../runtime/render';
 import { download, layerGeoTiff, seriesCsv } from '../runtime/export';
 import { INDICES } from '../runtime/indices';
 import { HistoryChart } from './Chart';
@@ -14,9 +14,6 @@ import { stationColor } from './colors';
 
 type Status = { state: 'idle' } | { state: 'loading'; message: string } | { state: 'error'; message: string };
 
-function fmt(v: number): string {
-  return Math.abs(v) >= 20 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2);
-}
 
 export function AppRuntime({
   spec,
@@ -117,11 +114,9 @@ export function AppRuntime({
   const legend = useMemo(() => {
     const l = current ? legendFor(current, !!changeValues) : null;
     if (!l || l.kind !== 'classes' || !current) return l;
-    // Only list classes that actually appear on this map.
-    const present = new Set<number>();
-    const v = current.values;
-    for (let k = 0; k < v.length; k += 7) if (!Number.isNaN(v[k])) present.add(v[k]);
-    return { ...l, classes: l.classes.filter((c) => present.has(c.value)) };
+    // Only list classes that actually appear on this map, most common first.
+    const { shown, more } = presentClasses(current);
+    return { ...l, classes: shown, more };
   }, [current, changeValues]);
   const stats = useMemo(() => (current && has('region-stats') ? regionStats(changeValues ? { ...current, values: changeValues } : current) : null), [current, changeValues]);
 
@@ -141,6 +136,8 @@ export function AppRuntime({
   };
 
   const ramp = rampFor(spec.signal, current?.domain);
+  const statRamp = changeValues && current ? changeRamp(current) : ramp;
+  const fmt = (v: number) => formatValue(statRamp ?? {}, v);
   const sigName = SIGNAL_NAMES[spec.signal]?.short ?? spec.signal;
   const windowLabel = swipe ? `${spec.windows[0].label} and ${spec.windows[1].label}` : (spec.windows[winIdx] ?? spec.windows[0]).label;
 
@@ -203,23 +200,26 @@ export function AppRuntime({
                 />
                 <div className="legend-ends">
                   <span>
-                    {fmt(legend.ramp.domain[0])} {legend.ramp.low}
+                    {formatValue(legend.ramp, legend.ramp.domain[0])} {legend.ramp.low}
                   </span>
                   <span>
-                    {legend.ramp.high} {fmt(legend.ramp.domain[1])}
+                    {legend.ramp.high} {formatValue(legend.ramp, legend.ramp.domain[1])}
                   </span>
                 </div>
               </>
             ) : (
-              <ul className="classes">
-                {legend.classes.map((c) => (
-                  <li key={c.value}>
-                    <span className="swatch" style={{ background: c.color }} />
-                    {c.label}
-                    <span />
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="classes">
+                  {legend.classes.map((c) => (
+                    <li key={c.value}>
+                      <span className="swatch" style={{ background: c.color }} />
+                      {c.label}
+                      <span />
+                    </li>
+                  ))}
+                </ul>
+                {'more' in legend && legend.more ? <p className="hint">and {legend.more} rarer {legend.more === 1 ? 'class' : 'classes'}</p> : null}
+              </>
             )}
           </div>
         )}
@@ -267,9 +267,9 @@ export function AppRuntime({
             {seriesStatus.state === 'error' && <p className="error">Couldn't read the history: {seriesStatus.message}. Click again to retry.</p>}
             {series && series.points.length > 0 && ramp && (
               <>
-                <HistoryChart points={series.points} domain={ramp.domain} windows={spec.windows} units={sigName} color={color} />
+                <HistoryChart points={series.points} domain={ramp.domain} windows={spec.windows} units={sigName} color={color} format={ramp.format} />
                 <p className="hint">
-                  {series.points.length} clear looks out of {series.looked} scenes at {point![1].toFixed(4)}, {point![0].toFixed(4)}.
+                  {series.points.length} usable readings out of {series.looked} looked at, at {point![1].toFixed(4)}, {point![0].toFixed(4)}.
                 </p>
               </>
             )}

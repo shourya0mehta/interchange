@@ -1,4 +1,4 @@
-import { CHANGE_RAMP, LANDCOVER_CLASSES, RAMPS, classesToRgba, rampToRgba, trueColorToRgba, type ClassEntry, type Ramp } from './colormap';
+import { CLASS_TITLES, LANDCOVER_CLASSES, RAMPS, changeRampFor, classesToRgba, rampToRgba, trueColorToRgba, type ClassEntry, type Ramp } from './colormap';
 import { gridPixelMeters, mercToLonLat, type Grid } from './geo';
 import type { LayerResult } from './layers';
 import type { Signal } from './sources';
@@ -14,17 +14,39 @@ export function rampFor(signal: Signal, domain?: [number, number]): Ramp | null 
   return domain ? { ...r, domain } : r;
 }
 
+/** The ramp for after-minus-before maps of a layer. */
+export function changeRamp(result: LayerResult): Ramp {
+  const r = rampFor(result.recipe.signal, result.domain);
+  return changeRampFor(r?.format, r ? r.domain[1] - r.domain[0] : 1);
+}
+
+/** Class entries present in a layer, most common first. Long tables (crop maps) list only these. */
+export function presentClasses(result: LayerResult, max = 12): { shown: ClassEntry[]; more: number } {
+  const all = LANDCOVER_CLASSES[result.recipe.station] ?? [];
+  if (all.length <= max) return { shown: all, more: 0 };
+  const counts = new Map<number, number>();
+  for (let k = 0; k < result.values.length; k += 3) {
+    const v = result.values[k];
+    if (!Number.isNaN(v)) counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  const present = all.filter((c) => counts.has(c.value)).sort((a, b) => counts.get(b.value)! - counts.get(a.value)!);
+  return { shown: present.slice(0, max), more: Math.max(0, present.length - max) };
+}
+
 export function legendFor(result: LayerResult, change = false): Legend {
   const { signal, station } = result.recipe;
-  if (change) return { kind: 'ramp', ramp: CHANGE_RAMP, title: 'Change, after minus before' };
-  if (signal === 'landcover') return { kind: 'classes', classes: LANDCOVER_CLASSES[station] ?? [], title: 'Land cover' };
+  if (change) {
+    const ramp = changeRamp(result);
+    return { kind: 'ramp', ramp, title: ramp.units };
+  }
+  if (signal === 'landcover') return { kind: 'classes', classes: presentClasses(result).shown, title: CLASS_TITLES[station] ?? 'Land cover' };
   const ramp = rampFor(signal, result.domain);
   return ramp ? { kind: 'ramp', ramp, title: ramp.units } : { kind: 'none' };
 }
 
 /** Pixels for a layer, ready for a canvas. */
 export function layerRgba(result: LayerResult, changeValues?: Float32Array): Uint8ClampedArray {
-  if (changeValues) return rampToRgba(changeValues, CHANGE_RAMP);
+  if (changeValues) return rampToRgba(changeValues, changeRamp(result));
   if (result.kind === 'rgb' && result.rgb) return trueColorToRgba(...result.rgb);
   if (result.kind === 'categorical') return classesToRgba(result.values, LANDCOVER_CLASSES[result.recipe.station] ?? []);
   const ramp = rampFor(result.recipe.signal, result.domain);

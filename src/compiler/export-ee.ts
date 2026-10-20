@@ -6,14 +6,11 @@ import type { Route } from '../network/types';
 
 /** Band, reducer and display range for datasets the browser can't read yet. */
 const EE_HINTS: Record<string, { band: string; reducer: 'mean' | 'median' | 'max' | 'sum' | 'mode'; min: number; max: number; palette: string[]; image?: boolean; mosaic?: boolean }> = {
-  firms: { band: 'T21', reducer: 'max', min: 325, max: 400, palette: ['ffd166', 'f77f00', 'd62828'] },
   s5p: { band: 'tropospheric_NO2_column_number_density', reducer: 'mean', min: 0, max: 0.0002, palette: ['f7f7f7', 'fdae61', 'd7191c', '5e0b1f'] },
-  'modis-lst': { band: 'LST_Day_1km', reducer: 'mean', min: 13500, max: 16000, palette: ['313695', 'ffffbf', 'a50026'] },
   chirps: { band: 'precipitation', reducer: 'sum', min: 0, max: 400, palette: ['f7fbff', '6baed6', '08306b'] },
   era5: { band: 'temperature_2m', reducer: 'mean', min: 255, max: 305, palette: ['313695', 'ffffbf', 'a50026'] },
   smap: { band: 'sm_surface', reducer: 'mean', min: 0, max: 0.5, palette: ['8c510a', 'f6e8c3', '01665e'] },
   grace: { band: 'lwe_thickness', reducer: 'mean', min: -25, max: 25, palette: ['b2182b', 'f7f7f7', '2166ac'] },
-  'modis-snow': { band: 'NDSI_Snow_Cover', reducer: 'mean', min: 0, max: 100, palette: ['6b5b45', 'd7cfbf', 'ffffff'] },
   'viirs-night': { band: 'avg_rad', reducer: 'median', min: 0, max: 60, palette: ['000000', 'f1c40f', 'ffffff'] },
   gedi: { band: 'rh98', reducer: 'median', min: 0, max: 40, palette: ['f7fcb9', '41ab5d', '004529'] },
   hansen: { band: 'lossyear', reducer: 'max', min: 1, max: 25, palette: ['ffff00', 'ff0000'], image: true },
@@ -21,7 +18,12 @@ const EE_HINTS: Record<string, { band: string; reducer: 'mean' | 'median' | 'max
   alphaearth: { band: 'A01', reducer: 'mean', min: -0.3, max: 0.3, palette: ['440154', '21918c', 'fde725'], mosaic: true },
 };
 
-const LIVE_EE: Record<string, { min: number; max: number; band: string; palette?: string[]; image?: boolean; mosaic?: boolean; scale?: number }> = {
+const LIVE_EE: Record<string, { min: number; max: number; band: string; palette?: string[]; image?: boolean; mosaic?: boolean; scale?: number; toValue?: string; classPalette?: boolean; bands?: Record<string, string> }> = {
+  'modis-lst': { band: 'LST_Day_1km', min: 13657, max: 16157 },
+  'modis-snow': { band: 'Maximum_Snow_Extent', min: 0, max: 1, toValue: 'v.eq(200).updateMask(v.eq(200).or(v.eq(25)))' },
+  'active-fire': { band: 'FireMask', min: 0, max: 0.5, toValue: 'v.gte(7).updateMask(v.eq(5).or(v.gte(7)))' },
+  oisst: { band: 'sst', min: -200, max: 3200, bands: { 'sst-anomaly': 'anom' } },
+  'usda-cdl': { band: 'cropland', min: 0, max: 255, classPalette: true },
   'modis-vi': { band: 'NDVI', min: -1000, max: 9000, scale: 0.0001 },
   'esa-worldcover': { band: 'Map', min: 10, max: 100, image: false },
   'io-lulc': { band: 'b1', min: 1, max: 11, mosaic: true },
@@ -134,15 +136,17 @@ export function earthEngineScript(route: Route): string {
     const id = st.access.earthEngine;
     if (!id) {
       return [
-        `# ${route.title}`,
-        `# ${st.name} is not in Earth Engine. Start from Python instead:`,
-        ...st.tools.map((t) => `#   ${t.name}: ${t.url}`),
+        `// ${route.title}`,
+        `// ${st.name} isn't in the Earth Engine catalog. It's open on ${st.access.stac ? `STAC (${st.access.stac})` : st.access.other ?? 'the web'};`,
+        '// these open-source tools read it in Python:',
+        ...st.tools.map((t) => `//   ${t.name}: ${t.url}`),
         '',
       ].join('\n');
     }
-    const band = live?.band ?? hint!.band;
-    const min = live?.min ?? hint!.min;
-    const max = live?.max ?? hint!.max;
+    const band = live?.bands?.[route.signal] ?? live?.band ?? hint!.band;
+    const anomaly = route.signal === 'sst-anomaly';
+    const min = anomaly ? -300 : (live?.min ?? hint!.min);
+    const max = anomaly ? 300 : (live?.max ?? hint!.max);
     const pal = live ? (route.signal === 'landcover' ? null : palette(route.signal)) : hint!.palette;
     const isImage = (live?.image ?? hint?.image) === true;
     const reducer = hint?.reducer ?? (route.signal === 'landcover' ? 'mode' : 'mean');
@@ -152,12 +156,21 @@ export function earthEngineScript(route: Route): string {
     } else {
       const coll = `ee.ImageCollection(${js(id)}).filterBounds(aoi)`;
       const timed = st.temporal === 'static' ? coll : `${coll}.filterDate(w.start, w.end)`;
-      makeLayer = `function layerFor(w) { return ${timed}.select(${js(band)}).${reducer}().clip(aoi); }`;
+      // Counts (snow, fire) turn each map into 1 where it was present and 0 where it was seen clear.
+      const pick = live?.toValue
+        ? `.map(function (img) { var v = img.select(${js(band)}); return ee.Image(${live.toValue}.rename('value').copyProperties(img, ['system:time_start'])); })`
+        : `.select(${js(band)})`;
+      if (live?.toValue) add(`// Share of looks in each window where it was present (1) rather than clear (0).`);
+      makeLayer = `function layerFor(w) { return ${timed}${pick}.${reducer}().clip(aoi); }`;
       if (st.temporal === 'dense' || st.temporal === 'composite') {
-        seriesFn = `function series(start, end) { return ${coll}.filterDate(start, end).select(${js(band)}); }`;
+        seriesFn = `function series(start, end) { return ${coll}.filterDate(start, end)${pick}; }`;
       }
     }
-    visBlock = pal ? `var vis = { min: ${min}, max: ${max}, palette: ${js(pal)} };` : `var vis = { min: ${min}, max: ${max} };`;
+    visBlock = live?.classPalette
+      ? '// The dataset carries its own class colors.\nvar vis = {};'
+      : pal
+        ? `var vis = { min: ${min}, max: ${max}, palette: ${js(pal)} };`
+        : `var vis = { min: ${min}, max: ${max} };`;
   }
 
   add(visBlock, makeLayer);

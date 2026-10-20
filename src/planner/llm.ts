@@ -78,6 +78,7 @@ export function intentFromModel(text: string, raw: ModelIntent, now: Date): Inte
   return {
     text,
     place: typeof raw.place === 'string' && raw.place.trim() ? raw.place.trim() : rules.place,
+    places: [rules.place, ...rules.places].filter((p): p is string => !!p && p !== raw.place),
     theme: THEMES.includes(raw.theme) ? raw.theme : rules.theme,
     station: raw.station && STATIONS.some((s) => s.id === raw.station) ? raw.station : rules.station,
     views: [...new Set((raw.views ?? []).filter((v) => VIEWS.includes(v)))],

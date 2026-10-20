@@ -1,17 +1,24 @@
-import { capBbox, type Bbox } from '../runtime/geo';
+import { bboxAreaKm2, bboxCenter, capBbox, type Bbox } from '../runtime/geo';
 import type { TimeWindow } from '../runtime/layers';
-import type { Signal } from '../runtime/sources';
+import { RUNTIME_SOURCES, variantFor, type Signal } from '../runtime/sources';
 import { COMPONENT_BY_ID, SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
 import { checkRoute } from '../network/typecheck';
 import type { ComponentId, MethodId, Route, Station, Tradeoff } from '../network/types';
 import type { Intent, Theme } from './intent';
 
-/** Live previews are capped to keep reads small; bigger areas export. */
+/** Live previews are capped to keep reads small; bigger areas export. The cap depends on how the
+ * dataset is tiled: scenes come in ~100 km tiles, a global SST file covers an ocean in one read. */
 export const PREVIEW_MAX_KM2 = 3000;
+
+export function previewCap(stationId: string): number {
+  return RUNTIME_SOURCES[stationId]?.previewMaxKm2 ?? PREVIEW_MAX_KM2;
+}
 
 export interface Place {
   name: string;
   bbox: Bbox;
+  /** Said once under the routes when the box is a compromise (oceans that cross the date line). */
+  note?: string;
 }
 
 export type Geocoder = (query: string, signal?: AbortSignal) => Promise<Place | null>;
@@ -19,6 +26,8 @@ export type Geocoder = (query: string, signal?: AbortSignal) => Promise<Place | 
 interface Candidate {
   station: string;
   signal: Signal;
+  /** Stands in for a variable that isn't live yet (greenness for drought). */
+  proxy?: boolean;
 }
 
 /** Datasets that can answer each theme, best first. */
@@ -32,6 +41,11 @@ export const THEME_CANDIDATES: Record<Theme, Candidate[]> = {
     { station: 'sentinel-2', signal: 'ndvi' },
     { station: 'landsat', signal: 'ndvi' },
   ],
+  'crop-type': [
+    { station: 'usda-cdl', signal: 'landcover' },
+    { station: 'io-lulc', signal: 'landcover' },
+    { station: 'esa-cci-lc', signal: 'landcover' },
+  ],
   water: [
     { station: 'sentinel-2', signal: 'mndwi' },
     { station: 'jrc-water', signal: 'water-occurrence' },
@@ -41,26 +55,29 @@ export const THEME_CANDIDATES: Record<Theme, Candidate[]> = {
   flood: [
     { station: 'sentinel-1', signal: 'radar-vv' },
     { station: 'sentinel-2', signal: 'mndwi' },
+    { station: 'landsat', signal: 'mndwi' },
     { station: 'jrc-water', signal: 'water-occurrence' },
   ],
   fire: [
     { station: 'sentinel-2', signal: 'nbr' },
     { station: 'landsat', signal: 'nbr' },
-    { station: 'firms', signal: 'native' },
+    { station: 'active-fire', signal: 'fire-frequency' },
   ],
   snow: [
     { station: 'sentinel-2', signal: 'ndsi' },
+    { station: 'modis-snow', signal: 'snow-frequency' },
     { station: 'landsat', signal: 'ndsi' },
-    { station: 'modis-snow', signal: 'native' },
   ],
   built: [
     { station: 'io-lulc', signal: 'landcover' },
     { station: 'sentinel-2', signal: 'ndbi' },
+    { station: 'esa-cci-lc', signal: 'landcover' },
     { station: 'viirs-night', signal: 'native' },
   ],
   landcover: [
     { station: 'io-lulc', signal: 'landcover' },
     { station: 'esa-worldcover', signal: 'landcover' },
+    { station: 'esa-cci-lc', signal: 'landcover' },
     { station: 'dynamic-world', signal: 'native' },
   ],
   terrain: [{ station: 'cop-dem', signal: 'elevation' }],
@@ -75,23 +92,67 @@ export const THEME_CANDIDATES: Record<Theme, Candidate[]> = {
   'forest-loss': [
     { station: 'landsat', signal: 'ndvi' },
     { station: 'sentinel-2', signal: 'ndvi' },
+    { station: 'esa-cci-lc', signal: 'landcover' },
     { station: 'hansen', signal: 'native' },
   ],
   air: [{ station: 's5p', signal: 'native' }],
-  heat: [{ station: 'modis-lst', signal: 'native' }],
+  heat: [
+    { station: 'modis-lst', signal: 'lst' },
+    { station: 'nclimgrid', signal: 'air-temp' },
+    { station: 'era5', signal: 'native' },
+  ],
   rain: [
+    { station: 'nclimgrid', signal: 'precip' },
     { station: 'chirps', signal: 'native' },
     { station: 'era5', signal: 'native' },
   ],
   'night-lights': [{ station: 'viirs-night', signal: 'native' }],
+  // Soil moisture itself isn't readable in the browser yet; rain and plant greenness show a drought's mark.
   'soil-moisture': [
     { station: 'smap', signal: 'native' },
     { station: 'era5', signal: 'native' },
+    { station: 'nclimgrid', signal: 'precip', proxy: true },
+    { station: 'modis-vi', signal: 'ndvi', proxy: true },
   ],
   groundwater: [{ station: 'grace', signal: 'native' }],
   'canopy-height': [{ station: 'gedi', signal: 'native' }],
-  ocean: [{ station: 'argo', signal: 'native' }],
+  ocean: [
+    { station: 'oisst', signal: 'sst' },
+    { station: 'argo', signal: 'native' },
+  ],
 };
+
+/** Reorders or retunes a theme's candidates for what the sentence actually says. */
+function candidatesFor(intent: Intent): Candidate[] {
+  const text = intent.text;
+  let c = [...THEME_CANDIDATES[intent.theme]];
+  const first = (station: string) => {
+    const hit = c.find((x) => x.station === station);
+    if (hit) c = [hit, ...c.filter((x) => x !== hit)];
+  };
+  if (intent.theme === 'ocean') {
+    if (/anomal|marine heat ?waves?|heat ?waves?|warmer than|cooler than|above normal|below normal|bleach|el ni|la ni|unusual/i.test(text)) {
+      c = c.map((x) => (x.station === 'oisst' ? { ...x, signal: 'sst-anomaly' } : x));
+    }
+    // OISST is the skin of the sea; questions about what lies beneath go to the floats.
+    if (/below the surface|deep|subsurface|heat content|salinity|argo|profiles?|\d+ ?m(eters)? down/i.test(text)) c = c.filter((x) => x.station !== 'oisst');
+  }
+  if (intent.theme === 'heat') {
+    if (/\bair\b|weather|climate|average temp|daily temp|degrees/i.test(text) && !/surface|island|roofs?|pavement|asphalt|street|ground/i.test(text)) first('nclimgrid');
+  }
+  if (intent.theme === 'fire' && /active|hot ?spots?|burning (now|right now)|where (are|were) .*fires|fire (activity|season|counts?)|how many fires|thermal/i.test(text)) first('active-fire');
+  if (intent.theme === 'snow' && /how long|snow season|how often|duration|persist|snow cover days|snow days|melt[- ]?out|first snow/i.test(text)) first('modis-snow');
+  if ((intent.theme === 'landcover' || intent.theme === 'built' || intent.theme === 'forest-loss') && /\b19[89]\d\b|\b200\d\b|\bsince (the )?(90s|1990s|2000s)\b|three decades|30 years/i.test(text)) first('esa-cci-lc');
+  return c;
+}
+
+/** True when a place sits mostly outside a station's coverage. */
+function outsideCoverage(st: Station, bbox: Bbox): boolean {
+  if (!st.coverage) return false;
+  const [x, y] = bboxCenter(bbox);
+  const [w, s, e, n] = st.coverage.bbox;
+  return x < w || x > e || y < s || y > n;
+}
 
 const THEME_NOTES: Partial<Record<Theme, string>> = {
   'cover-crop': 'Snow reads as bare soil, so the windows sit in early spring, after melt and before cash crops green up.',
@@ -107,7 +168,11 @@ export function methodsFor(st: Station, signal: Signal, wantsChange: boolean): M
   if (signal === 'radar-vv') m.push('radar-db');
   else if (st.provides === 'scene') {
     m.push('cloud-mask', 'clear-days', signal === 'true-color' ? 'true-color' : 'index');
-  } else if (st.temporal === 'composite') m.push('composite-mean');
+  } else if (st.temporal === 'composite') {
+    const src = RUNTIME_SOURCES[st.id];
+    const reduce = src?.kind === 'product' ? variantFor(src, signal).reduce : 'mean';
+    m.push(reduce === 'frequency' ? 'count-looks' : reduce === 'sum' ? 'add-up' : 'composite-mean');
+  }
   else if (st.temporal === 'annual') m.push('pick-year');
   if (wantsChange && signal !== 'true-color' && st.provides !== 'classes' && st.temporal !== 'static') m.push('difference');
   return m;
@@ -141,10 +206,29 @@ function windowsFor(st: Station, intent: Intent): { windows: TimeWindow[]; histo
   // Dense and composite: every window must fall inside the record.
   const start = st.score.startYear;
   const end = st.score.endYear;
-  for (const w of base) {
+  const askedYears = /\b(18|19|20)\d\d\b/.test(intent.text);
+  let windows = base;
+  // Year-by-year asks keep the years the record covers ("each year since 2010" on a record ending 2022).
+  if (t.kind === 'yearly' && end !== null) {
+    const kept = base.filter((w) => Number(w.start.slice(0, 4)) <= end);
+    if (kept.length >= 2 && kept.length < base.length) {
+      windows = kept;
+      notes.push(`${st.name} ends in ${end} here, so the slider stops there.`);
+    }
+  }
+  const lastYear = Math.max(...windows.map((w) => Number(w.start.slice(0, 4))));
+  if (end !== null && lastYear > end) {
+    // A record that stopped (NClimGrid here ends in 2022): when no year was asked for, use its
+    // latest matching season instead of nothing.
+    if (askedYears && t.kind !== 'history') return null;
+    const shift = (d: string, k: number) => `${Number(d.slice(0, 4)) - k}${d.slice(4)}`;
+    const k = lastYear - end;
+    windows = windows.map((w) => ({ label: w.label.replace(/\b(18|19|20)\d\d\b/g, (y) => String(Number(y) - k)), start: shift(w.start, k), end: shift(w.end, k) }));
+    notes.push(`${st.name} ends in ${end} here, so the latest ${end} data is used.`);
+  }
+  for (const w of windows) {
     const wy = Number(w.end.slice(0, 4));
     if (wy < start) return null;
-    if (end !== null && Number(w.start.slice(0, 4)) > end) return null;
   }
   let history: { start: string; end: string } | undefined;
   if (t.kind === 'history') {
@@ -153,8 +237,9 @@ function windowsFor(st: Station, intent: Intent): { windows: TimeWindow[]; histo
       history.start = `${start}-01-01`;
       notes.push(`${st.name} history starts in ${start}.`);
     }
+    if (end !== null && history.end > `${end}-12-31`) history.end = `${end}-12-31`;
   }
-  return { windows: base, history, notes };
+  return { windows, history, notes };
 }
 
 function chooseViews(st: Station, intent: Intent, output: 'scene' | 'raster' | 'classes' | 'image', windowCount: number): { views: ComponentId[]; notes: string[] } {
@@ -244,18 +329,21 @@ export interface PlanResult {
   warnings: string[];
 }
 
+/** Route title in plain words: "Sentinel-2, greenness (NDVI)". */
+function titleFor(st: Station, signal: Signal): string {
+  const what = st.id === 'usda-cdl' ? 'crop types' : (SIGNAL_NAMES[signal]?.long ?? signal);
+  return `${st.name}, ${what}`;
+}
+
 /** Turns a parsed goal and a place into ranked, type-checked candidate routes. */
 export function planRoutes(intent: Intent, place: Place | null): PlanResult {
   const warnings: string[] = [];
   const skipped: PlanResult['skipped'] = [];
-  if (!place) warnings.push('Name a place (a county, city, park or watershed) so the map knows where to look.');
-  const capped = place ? capBbox(place.bbox, PREVIEW_MAX_KM2) : null;
-  if (capped?.capped) {
-    warnings.push(`${place!.name} is large, so the live preview covers its central ${PREVIEW_MAX_KM2.toLocaleString('en-US')} km². Export the route for the full area.`);
-  }
-  const aoi = place ? { name: place.name, bbox: capped!.bbox, capped: capped!.capped } : { name: 'Pick a place', bbox: [0, 0, 0, 0] as Bbox };
+  if (!place) warnings.push('Name a place (a county, city, park, lake or ocean) so the map knows where to look.');
+  if (place?.note) warnings.push(place.note);
+  const placeArea = place ? bboxAreaKm2(place.bbox) : 0;
 
-  let cands = [...THEME_CANDIDATES[intent.theme]];
+  let cands = candidatesFor(intent);
   if (intent.station) {
     const named = STATION_BY_ID[intent.station];
     const already = cands.find((c) => c.station === intent.station);
@@ -265,29 +353,40 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
       if (sig) cands = [{ station: named.id, signal: sig }, ...cands];
     }
   }
-  const wantsChange = intent.theme === 'forest-loss' || intent.theme === 'fire' || /\bchange|loss|lost|gain/i.test(intent.text);
+  const wantsChange = intent.theme === 'forest-loss' || intent.theme === 'fire' || /\bchange|loss|lost|gain|warm(ed|ing)|cool(ed|ing)/i.test(intent.text);
 
   const stations = cands.map((c) => STATION_BY_ID[c.station]).filter(Boolean);
   const routes: Route[] = [];
-  const partial = new Set<string>();
+  const penalty = new Map<string, number>();
   for (const c of cands) {
     const st = STATION_BY_ID[c.station];
     if (!st) continue;
+    if (place && outsideCoverage(st, place.bbox)) {
+      skipped.push({ station: st.id, reason: `${st.name} covers only ${st.coverage!.name}.` });
+      continue;
+    }
     const fit = windowsFor(st, intent);
     if (!fit) {
       const later = cands.map((o) => STATION_BY_ID[o.station]).find((o) => o && o.score.startYear < st.score.startYear);
+      const ended = st.score.endYear !== null && intent.time.kind !== 'history';
       skipped.push({
         station: st.id,
-        reason: `${st.name} starts in ${st.score.startYear}, after the dates asked for${later ? `; transfer to ${later.name}` : ''}.`,
+        reason: ended && /\b(18|19|20)\d\d\b/.test(intent.text) && Number((intent.time.kind === 'compare' || intent.time.kind === 'yearly' ? intent.time.windows[0] : intent.time.window).start.slice(0, 4)) >= st.score.startYear
+          ? `${st.name} ends in ${st.score.endYear} here, before the dates asked for.`
+          : `${st.name} starts in ${st.score.startYear}, after the dates asked for${later ? `; transfer to ${later.name}` : ''}.`,
       });
       continue;
     }
+    // Each dataset previews as much of the place as it can read quickly; export routes take it all.
+    const cap = previewCap(st.id);
+    const capped = place && st.live ? capBbox(place.bbox, cap) : place ? { bbox: place.bbox, capped: false } : null;
+    const aoi = place ? { name: place.name, bbox: capped!.bbox, capped: capped!.capped } : { name: 'Pick a place', bbox: [0, 0, 0, 0] as Bbox };
     const methods = methodsFor(st, c.signal, wantsChange && fit.windows.length === 2);
     const output = st.provides === 'scene' ? (c.signal === 'true-color' ? 'image' : 'raster') : st.provides;
     const { views, notes: viewNotes } = chooseViews(st, intent, output, fit.windows.length);
     const route: Route = {
       id: `${st.id}-${c.signal}`,
-      title: `${st.name}, ${SIGNAL_NAMES[c.signal]?.long ?? c.signal}`,
+      title: titleFor(st, c.signal),
       why: st.goodAt[0],
       station: st.id,
       signal: c.signal,
@@ -300,6 +399,9 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
       tradeoffs: tradeoffs(st, stations),
       warnings: [...fit.notes, ...(st.live ? viewNotes : [`${st.name} isn't readable in the browser yet, so this route ends in an Earth Engine export.`])],
     };
+    if (capped?.capped) {
+      route.warnings.unshift(`${place!.name} is bigger than ${st.name} can preview quickly, so the live map covers its central ${Math.round(cap).toLocaleString('en-US')} km². The Earth Engine version covers all of it.`);
+    }
     const note = THEME_NOTES[intent.theme];
     if (note) route.warnings.unshift(note);
     const check = checkRoute(route);
@@ -308,12 +410,33 @@ export function planRoutes(intent: Intent, place: Place | null): PlanResult {
       continue;
     }
     route.when = windowsSummary(route.windows, route.historyRange);
-    const askedYears = /\b(19|20)\d\d\b/.test(intent.text);
-    if (fit.notes.some((n) => /starts in/.test(n) || (askedYears && /closest years/.test(n)))) partial.add(route.id);
+    const askedYears = /\b(18|19|20)\d\d\b/.test(intent.text);
+    let p = 0;
+    if (intent.time.kind === 'history') {
+      // How much of the asked-for history the record covers.
+      const want = [Number(intent.time.range.start.slice(0, 4)), Number(intent.time.range.end.slice(0, 4))];
+      const have = [Math.max(want[0], st.score.startYear), Math.min(want[1], st.score.endYear ?? want[1])];
+      const share = Math.max(0, have[1] - have[0] + 1) / Math.max(1, want[1] - want[0] + 1);
+      if (share < 0.8) p += 1;
+    } else if (fit.notes.some((n) => /starts in/.test(n) || /ends in/.test(n) || (askedYears && /closest years/.test(n)))) p += 1;
+    // A dataset that can only show a sliver of a big place ranks below one that shows all of it.
+    const ratio = place && st.live ? placeArea / cap : 0;
+    if (ratio > 4) p += ratio > 50 ? 2 : 1;
+    // One fixed map can't answer a question about particular dates (a flood, a drought year).
+    if (st.temporal === 'static' && (intent.time.kind !== 'snapshot' || intent.theme === 'flood')) p += 2;
+    // A stand-in ranks below the real thing when the person named the real thing.
+    if (c.proxy && /soil moisture/i.test(intent.text)) p += 4;
+    penalty.set(route.id, p);
     routes.push(route);
   }
-  // Live first, then routes that cover every date asked for, keeping theme order otherwise.
-  const rank = (r: Route) => (r.runs === 'live' ? 0 : 2) + (partial.has(r.id) ? 1 : 0);
-  routes.sort((a, b) => rank(a) - rank(b));
+  // Live first, then the best fit for the dates and the size of the place, keeping theme order otherwise.
+  const rank = (r: Route) => (r.runs === 'live' ? 0 : 3) + (penalty.get(r.id) ?? 0);
+  const sliver = (r: Route) => (place && r.runs === 'live' ? Math.max(1, placeArea / previewCap(r.station)) : 1);
+  // Among equals, a dataset that shows far more of a big place (MODIS over Landsat for a state) leads.
+  const farMore = (a: Route, b: Route) => {
+    const [x, y] = [sliver(a), sliver(b)];
+    return (x > 4 || y > 4) && Math.max(x, y) / Math.min(x, y) > 3 ? x - y : 0;
+  };
+  routes.sort((a, b) => rank(a) - rank(b) || farMore(a, b));
   return { intent, place, routes: routes.slice(0, 3), skipped, warnings };
 }

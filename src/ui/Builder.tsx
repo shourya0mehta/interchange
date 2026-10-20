@@ -4,9 +4,9 @@ import { earthEngineScript } from '../compiler/export-ee';
 import { SIGNAL_NAMES, STATION_BY_ID } from '../network/network';
 import { checkRoute } from '../network/typecheck';
 import type { Route } from '../network/types';
-import { parseGoal, type Intent, type Theme } from '../planner/intent';
+import { THEME_WORDS, parseGoal, type Intent } from '../planner/intent';
 import { parseGoalWithClaude } from '../planner/llm';
-import { nominatim } from '../planner/places';
+import { geocodeFirst, nominatim } from '../planner/places';
 import { planRoutes, type PlanResult } from '../planner/plan';
 import { AppRuntime } from './AppRuntime';
 import { BrandMark } from './BrandMark';
@@ -30,28 +30,6 @@ export const EXAMPLES = [
   'Lake Mead water each year from 2015 to 2024',
 ];
 
-const THEME_WORDS: Record<Theme, string> = {
-  vegetation: 'greenness',
-  'cover-crop': 'winter cover on fields',
-  water: 'surface water',
-  flood: 'flooding',
-  fire: 'burn severity',
-  snow: 'snow',
-  built: 'built-up land',
-  landcover: 'land cover',
-  terrain: 'terrain',
-  moisture: 'plant moisture',
-  imagery: 'what the ground looks like',
-  'forest-loss': 'forest loss',
-  air: 'air quality',
-  heat: 'surface heat',
-  rain: 'rainfall',
-  'night-lights': 'night lights',
-  'soil-moisture': 'soil moisture',
-  groundwater: 'groundwater',
-  'canopy-height': 'canopy height',
-  ocean: 'ocean heat',
-};
 
 function readingOf(intent: Intent, plan: PlanResult): string {
   const t = intent.time;
@@ -145,7 +123,8 @@ export function Builder({ forkToken }: { forkToken: string | null }) {
         }
       } else intent = parseGoal(t);
       if (pinned) intent = { ...intent, station: pinned };
-      const place = intent.place ? await nominatim(intent.place) : null;
+      const found = intent.place ? await geocodeFirst(nominatim, [intent.place, ...intent.places]) : null;
+      const place = found?.place ?? null;
       if (intent.place && !place) {
         // Stay where we are: the network (or the last plan) keeps its place on screen.
         setErr(`Couldn't find "${intent.place}" on the map. Check your connection and try again, or add a state or country, like "Tompkins County, NY".`);

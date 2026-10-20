@@ -59,6 +59,8 @@ export interface Station {
   access: { earthEngine?: string; stac?: string; other?: string };
   /** The browser can read it in v1. Otherwise routes through it end in an export. */
   live: boolean;
+  /** Where it has data, when that isn't the whole globe. */
+  coverage?: { bbox: Bbox; name: string };
   tools: Tool[];
   /** Position along its lines on the network map, 0 to 1000. */
   x: number;
@@ -73,6 +75,8 @@ export type MethodId =
   | 'radar-db'
   | 'composite-mean'
   | 'pick-year'
+  | 'count-looks'
+  | 'add-up'
   | 'difference';
 
 export interface Method {

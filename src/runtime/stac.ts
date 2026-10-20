@@ -85,6 +85,21 @@ export function parseItem(f: Record<string, unknown>): StacItem {
   };
 }
 
+/**
+ * Catalogs throttle bursts (Planetary Computer answers 403 or 429 when a history chart fires
+ * dozens of searches at once). Waits and tries again, up to three times, honoring Retry-After.
+ */
+async function withRetry(go: () => Promise<Response>): Promise<Response> {
+  let res = await go();
+  for (let attempt = 1; attempt <= 3 && [403, 429, 500, 502, 503, 504].includes(res.status); attempt++) {
+    const after = Number(res.headers.get('retry-after'));
+    const wait = Number.isFinite(after) && after > 0 ? Math.min(after, 15) * 1000 : [0, 1000, 3000, 8000][attempt];
+    await new Promise((r) => setTimeout(r, wait + Math.random() * 300));
+    res = await go();
+  }
+  return res;
+}
+
 /** STAC item search across pages, newest-first or clearest-first. */
 export async function searchItems(o: SearchOptions): Promise<StacItem[]> {
   const limit = o.limit ?? 50;
@@ -105,12 +120,14 @@ export async function searchItems(o: SearchOptions): Promise<StacItem[]> {
   let url = `${STAC_ENDPOINTS[o.catalog]}/search`;
   let payload: Record<string, unknown> | null = body;
   for (let page = 0; page < 10 && payload && out.length < limit; page++) {
-    const res = await fetcher(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: o.signal,
-    });
+    const res = await withRetry(() =>
+      fetcher(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: o.signal,
+      }),
+    );
     if (!res.ok) throw new Error(`STAC search failed (${res.status}) for ${o.collection}`);
     const json = (await res.json()) as { features: Record<string, unknown>[]; links?: Record<string, unknown>[] };
     for (const f of json.features) out.push(parseItem(f));
@@ -151,7 +168,7 @@ export async function signPlanetaryComputer(url: string): Promise<string> {
     if (!t || t.expires - now < 5 * 60_000) p = undefined;
   }
   if (!p) {
-    p = fetcher(`https://planetarycomputer.microsoft.com/api/sas/v1/token/${key}`)
+    p = withRetry(() => fetcher(`https://planetarycomputer.microsoft.com/api/sas/v1/token/${key}`))
       .then((r) => {
         if (!r.ok) throw new Error(`Planetary Computer token failed (${r.status})`);
         return r.json();

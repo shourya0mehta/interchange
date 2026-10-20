@@ -12,6 +12,8 @@ import {
   MAX_REFLECTANCE,
   RUNTIME_SOURCES,
   maskIsClear,
+  productValue,
+  variantFor,
   type Band,
   type ProductSource,
   type SceneSource,
@@ -266,6 +268,37 @@ function productRange(src: ProductSource, window: TimeWindow): { start: string; 
   return { start: window.start, end: window.end };
 }
 
+/** MODIS tile (h08v05) or the item id, so Terra and Aqua copies of one tile collapse to one read. */
+function tileOf(it: StacItem): string {
+  return /h\d\dv\d\d/.exec(it.id)?.[0] ?? it.id;
+}
+
+/** Picks at most `max` dates spread evenly through the window, keeping one item per tile on each. */
+function thinDates(items: StacItem[], max: number): StacItem[] {
+  const byDay = new Map<string, StacItem[]>();
+  for (const it of items) {
+    const k = dayKey(it);
+    const list = byDay.get(k) ?? [];
+    // Terra (MOD) is kept over Aqua (MYD) when both cover the same tile and day.
+    const twin = list.findIndex((o) => tileOf(o) === tileOf(it));
+    if (twin < 0) list.push(it);
+    else if (it.id.startsWith('MOD') && !list[twin].id.startsWith('MOD')) list[twin] = it;
+    byDay.set(k, list);
+  }
+  const days = [...byDay.keys()].sort();
+  if (days.length <= max) return days.flatMap((d) => byDay.get(d)!);
+  const step = days.length / max;
+  const keep = new Set(Array.from({ length: max }, (_, i) => days[Math.floor(i * step + step / 2)]));
+  return days.filter((d) => keep.has(d)).flatMap((d) => byDay.get(d)!);
+}
+
+/** Months a window spans, for precipitation totals' color range. */
+function monthsIn(w: { start: string; end: string }): number {
+  const a = new Date(`${w.start}T00:00:00Z`);
+  const b = new Date(`${w.end}T00:00:00Z`);
+  return Math.max(1, (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth() + 1);
+}
+
 async function evaluateProduct(
   src: ProductSource,
   recipe: LayerRecipe,
@@ -275,6 +308,7 @@ async function evaluateProduct(
 ): Promise<LayerResult> {
   const n = grid.width * grid.height;
   const range = productRange(src, window);
+  const variant = variantFor(src, recipe.signal);
   opts.onProgress?.(`Searching ${src.collection}`);
   let items = await searchItems({
     catalog: src.catalog,
@@ -283,25 +317,29 @@ async function evaluateProduct(
     start: range.start,
     end: range.end,
     sort: 'date',
-    limit: 40,
+    limit: src.temporal === 'composite' ? 200 : 40,
+    query: src.query,
     signal: opts.signal,
   });
-  if (src.temporal === 'composite') items = items.slice(-24);
-  const categorical = src.signal === 'landcover';
+  if (src.temporal === 'composite') items = thinDates(items, src.maxDates ?? 16);
+  const categorical = recipe.signal === 'landcover';
   const sum = new Float64Array(n);
   const count = new Uint16Array(n);
   const out = nanArray(n);
   const used: SceneUsed[] = [];
+  const seenDays = new Set<string>();
   for (const item of items) {
     if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    const asset = item.assets[src.asset];
+    const asset = item.assets[variant.asset];
     if (!asset || !item.crs) continue;
     const coords = coordsFor(grid, item.crs);
     const res = readResFor(grid, item.crs, src.nativeRes);
     const bounds = sourceBounds(coords, res * 2);
-    opts.onProgress?.(`Reading ${item.id}`);
+    opts.onProgress?.(`Reading ${dayKey(item)}`);
+    // MODIS flag layers have averaged overviews (snow 25 and 200 blur into 112), so counts read the
+    // native grid. Class maps (CDL, CCI, IO) were checked to keep exact codes in their overviews.
     const [win, qa] = await Promise.all([
-      readCogWindow(asset.href, bounds, res),
+      readCogWindow(asset.href, bounds, variant.reduce === 'frequency' ? 0 : res),
       src.qa && item.assets[src.qa.asset]
         ? readCogWindow(item.assets[src.qa.asset].href, bounds, res)
         : Promise.resolve(null),
@@ -312,21 +350,40 @@ async function evaluateProduct(
       const x = coords[p * 2];
       const y = coords[p * 2 + 1];
       const raw = sampleAt(win, x, y);
-      if (Number.isNaN(raw) || (src.nodata !== null && raw === src.nodata)) continue;
+      if (categorical) {
+        if (Number.isNaN(raw) || (variant.nodata !== null && raw === variant.nodata)) continue;
+        if (Number.isNaN(out[p])) {
+          out[p] = raw;
+          filled++;
+        }
+        continue;
+      }
+      const v = productValue(variant, raw);
+      if (Number.isNaN(v)) continue;
       if (src.qa && qa && !src.qa.valid(sampleAt(qa, x, y))) continue;
       if (src.temporal === 'composite') {
-        sum[p] += raw * src.scale + src.offset;
+        sum[p] += v;
         count[p]++;
         filled++;
       } else if (Number.isNaN(out[p])) {
-        out[p] = categorical ? raw : raw * src.scale + src.offset;
+        out[p] = v;
         filled++;
       }
     }
-    if (filled) used.push({ id: item.id, date: dayKey(item), cloud: item.cloud });
+    const day = dayKey(item);
+    if (filled && !seenDays.has(day)) {
+      seenDays.add(day);
+      used.push({ id: item.id, date: day, cloud: item.cloud });
+    }
   }
   if (src.temporal === 'composite') {
-    for (let p = 0; p < n; p++) if (count[p]) out[p] = sum[p] / count[p];
+    // A sum over a window is mean-per-look times the number of looks the window holds, so pixels
+    // missing a month or two still read as a full total.
+    const dates = Math.max(1, seenDays.size);
+    for (let p = 0; p < n; p++) {
+      if (!count[p]) continue;
+      out[p] = variant.reduce === 'sum' ? (sum[p] / count[p]) * dates : sum[p] / count[p];
+    }
   }
   const coverage = coverageOf(out);
   const result: LayerResult = {
@@ -339,11 +396,12 @@ async function evaluateProduct(
     scenes: used,
     note: used.length === 0 ? `No ${src.collection} data for ${window.label}` : undefined,
   };
-  if (src.signal === 'elevation') {
+  if (recipe.signal === 'elevation') {
     const lo = percentile(out, 0.02);
     const hi = percentile(out, 0.98);
     if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) result.domain = [lo, hi];
   }
+  if (recipe.signal === 'precip') result.domain = [0, 150 * monthsIn(range)];
   return result;
 }
 

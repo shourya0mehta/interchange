@@ -1,6 +1,25 @@
-import type { Bbox } from '../runtime/geo';
+import { bboxAreaKm2, bboxCenter, type Bbox } from '../runtime/geo';
 import { getFetcher } from '../runtime/stac';
+import { regionByName } from './gazetteer';
 import type { Geocoder, Place } from './plan';
+
+/** A point or a building is too small to map; give it a couple of kilometres around. */
+function atLeast(b: Bbox, km = 3): Bbox {
+  if (bboxAreaKm2(b) >= km * km) return b;
+  const [x, y] = bboxCenter(b);
+  const dy = km / 2 / 111.32;
+  const dx = dy / Math.max(0.2, Math.cos((y * Math.PI) / 180));
+  return [x - dx, y - dy, x + dx, y + dy];
+}
+
+/** "42.44000, -76.50000" -> a ~10 km box around the point. */
+function coordsPlace(query: string): Place | null {
+  const m = /^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/.exec(query.trim());
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lon = Number(m[2]);
+  return { name: `${lat.toFixed(4)}, ${lon.toFixed(4)}`, bbox: atLeast([lon, lat, lon, lat], 10) };
+}
 
 const cache = new Map<string, Promise<Place | null>>();
 
@@ -55,15 +74,29 @@ async function lookup(query: string, signal?: AbortSignal): Promise<Place | null
  * one-request-a-second policy. Hits are cached for the session; misses are retried next time.
  */
 export const nominatim: Geocoder = (query, signal) => {
+  const fixed = coordsPlace(query) ?? (() => {
+    const r = regionByName(query);
+    return r ? { name: r.name, bbox: r.bbox, note: r.note } : null;
+  })();
+  if (fixed) return Promise.resolve(fixed);
   const key = query.trim().toLowerCase();
   let p = cache.get(key);
   if (!p) {
-    p = lookup(query, signal);
+    p = lookup(query, signal).then((v) => (v ? { ...v, bbox: atLeast(v.bbox) } : v));
     p.then((v) => v === null && cache.delete(key));
     cache.set(key, p);
   }
   return p;
 };
+
+/** Tries each place phrase in turn and returns the first that's found, with the phrase used. */
+export async function geocodeFirst(geocoder: Geocoder, phrases: string[], signal?: AbortSignal): Promise<{ place: Place; phrase: string } | null> {
+  for (const phrase of phrases.slice(0, 4)) {
+    const place = await geocoder(phrase, signal);
+    if (place) return { place, phrase };
+  }
+  return null;
+}
 
 /** A geocoder backed by a fixed table, for tests and the gallery harness. */
 export function tableGeocoder(table: Record<string, Bbox>): Geocoder {

@@ -34,6 +34,8 @@ export function proj4Def(crs: Crs): string {
   const e = crs.epsg;
   if (e === 4326) return '+proj=longlat +datum=WGS84 +no_defs';
   if (e === 3857) return '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +no_defs';
+  // NAD83 / Conus Albers, used by the USDA Cropland Data Layer and other US federal maps.
+  if (e === 5070) return '+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs';
   if (e >= 32601 && e <= 32660) return `+proj=utm +zone=${e - 32600} +datum=WGS84 +units=m +no_defs`;
   if (e >= 32701 && e <= 32760) return `+proj=utm +zone=${e - 32700} +south +datum=WGS84 +units=m +no_defs`;
   throw new Error(`Unsupported EPSG:${e}`);
